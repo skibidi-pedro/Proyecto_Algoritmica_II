@@ -1,6 +1,0 @@
-target/
-*.db
-*.class
-.idea/
-*.iml
-reportes_salida/
