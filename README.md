@@ -88,7 +88,104 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 
 Cada integrante es responsable de sus módulos y de sus pruebas; todos participan en la integración final. Las interfaces entre roles están definidas para poder trabajar en paralelo.
 
+### 6.1 Estructura de carpetas (propuesta)
+
+Cada integrante es **dueño de sus paquetes** dentro de `src/`. No se editan archivos de otro paquete sin avisar; la comunicación entre paquetes se hace solo por las clases públicas indicadas en 6.3.
+
+```
+Proyecto_Algoritmica_II/
+├── README.md
+├── prototipo/
+│   └── EvacuaPrototipo.java        <- prototipo de interfaz actual (referencia)
+├── src/
+│   └── evacua/
+│       ├── Main.java                         [Integrante 1]
+│       │
+│       ├── estructuras/                      [Integrante 1]
+│       │   ├── ListaSimple.java
+│       │   ├── ListaDoble.java
+│       │   ├── Pila.java
+│       │   ├── Cola.java
+│       │   └── ColaPrioridad.java            (heap)
+│       ├── persistencia/                     [Integrante 1]
+│       │   ├── BaseDatos.java
+│       │   └── GestorEscenarios.java         (guardar / cargar, RN-10)
+│       ├── reportes/                         [Integrante 1]
+│       │   ├── ReporteSimulacion.java
+│       │   ├── ComparadorEscenarios.java
+│       │   └── ExportadorIndividual.java     (RN-14)
+│       │
+│       ├── edificio/                         [Integrante 2]
+│       │   ├── Nodo.java
+│       │   ├── Conexion.java
+│       │   ├── Edificio.java                 (grafo + CRUD + bloqueos)
+│       │   ├── TipoNodo.java                 (Habitación, Pasillo, Escalera, Salida)
+│       │   └── EstadoNodo.java               (Libre, Congestionado, Bloqueado)
+│       ├── rutas/                            [Integrante 2]
+│       │   ├── Dijkstra.java
+│       │   ├── AEstrella.java
+│       │   ├── Heuristica.java               (euclidiana / Manhattan -> tiempo)
+│       │   ├── ResultadoRuta.java            (ruta, nodos explorados, tiempo)
+│       │   └── RecalculadorRutas.java        (RN-07)
+│       ├── importacion/                      [Integrante 2]
+│       │   ├── ParserPlano.java
+│       │   ├── ParserJson.java
+│       │   ├── ParserTxt.java
+│       │   ├── ParserXml.java
+│       │   └── ValidadorPlano.java           (RN-15)
+│       ├── vista/                            [Integrante 2]
+│       │   ├── VentanaPrincipal.java         (Swing)
+│       │   ├── PanelEdificio.java            (edificio, personas y rutas)
+│       │   └── MapaCalor.java                (RN-19)
+│       │
+│       ├── personas/                         [Integrante 3]
+│       │   ├── Persona.java                  (clase base)
+│       │   ├── Adulto.java
+│       │   ├── Nino.java
+│       │   ├── MovilidadReducida.java
+│       │   ├── PersonalRescate.java          (RN-17)
+│       │   ├── Bitacora.java                 (RN-11)
+│       │   ├── RegistroBitacora.java
+│       │   ├── NivelEstres.java              (RN-12)
+│       │   └── HistorialEventos.java         (RN-13)
+│       └── simulacion/                       [Integrante 3]
+│           ├── MotorSimulacion.java          (paso a paso)
+│           ├── EventoAleatorio.java          (RN-18)
+│           ├── ControlCapacidad.java         (RN-08)
+│           └── ResultadoSimulacion.java      (tiempos, cuellos de botella, RN-09)
+├── recursos/
+│   └── planos/                               [Integrante 2] planos de prueba (.json, .txt, .xml)
+├── test/                                     cada integrante prueba sus paquetes
+│   └── evacua/ (estructuras, edificio, rutas, importacion, personas, simulacion, ...)
+└── docs/                                     informe, diagrama de casos de uso
+```
+
+### 6.2 Resumen por integrante
+
+| Integrante | Rol | Paquetes en `src/evacua/` | Reglas |
+|---|---|---|---|
+| 1 | Núcleo, persistencia, reportes e integración | `Main`, `estructuras`, `persistencia`, `reportes` | RN-01, RN-10, RN-14 |
+| 2 | Edificio, rutas, importación e interfaz | `edificio`, `rutas`, `importacion`, `vista`, `recursos/planos` | RN-02 a RN-07, RN-15, RN-16, RN-19 |
+| 3 | Personas, comportamiento y motor de simulación | `personas`, `simulacion` | RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18 |
+
+### 6.3 Puntos de contacto entre paquetes
+
+| Quien provee | Clase / operación | Quien la usa |
+|---|---|---|
+| Integrante 1 | `estructuras.*` (listas, pila, cola, heap) | Todos (grafo, bitácora, búsqueda de rutas) |
+| Integrante 2 | `RecalculadorRutas`, `Dijkstra`, `AEstrella`, `Edificio` | `simulacion.MotorSimulacion` (Integrante 3) |
+| Integrante 3 | `Bitacora`, `HistorialEventos`, `Persona` | `reportes.ExportadorIndividual` (Integrante 1) |
+| Integrante 3 | `ResultadoSimulacion` | `reportes.*` (Integrante 1) y `vista.*` (Integrante 2) |
+| Integrante 3 | `EventoAleatorio` (bloquea un elemento) | `RecalculadorRutas` (Integrante 2) |
+| Integrante 1 | `GestorEscenarios` | `Main` y `vista` (Integrante 2) |
+
+> Los nombres de clases y carpetas son una propuesta inicial; si se renombra algo, actualiza también esta sección.
+
+### 6.4 Tareas por integrante
+
 **Integrante 1: Núcleo, persistencia, exportación e integración** (RN-01, RN-10, RN-14)
+*Paquetes:* `Main`, `estructuras`, `persistencia`, `reportes`
+
 - Estructuras base: listas simple/doble, pila, cola, heap.
 - Menú principal, clase `Main` y comunicación entre módulos (importar plano, exportar reportes individuales, comparar escenarios).
 - Registro, guardado y carga de escenarios en base de datos.
@@ -98,6 +195,8 @@ Cada integrante es responsable de sus módulos y de sus pruebas; todos participa
 - Configuración del repositorio, integración completa y coordinación de entregas.
 
 **Integrante 2: Edificio, rutas, bloqueos e importación de planos** (RN-02, RN-03, RN-04, RN-05, RN-06, RN-07, RN-15, RN-16, RN-19)
+*Paquetes:* `edificio`, `rutas`, `importacion`, `vista`, `recursos/planos`
+
 - Grafo del edificio con CRUD de nodos, estados y capacidades.
 - Gestión de bloqueos (marcar/desbloquear) y su exclusión del cálculo de rutas.
 - Dijkstra y A\* con comparación de nodos explorados y tiempo.
@@ -107,6 +206,8 @@ Cada integrante es responsable de sus módulos y de sus pruebas; todos participa
 - *(Reasignado)* Acumulación de ocupación por nodo y mapa de calor en Swing al finalizar la simulación (RN-19).
 
 **Integrante 3: Personas y comportamiento** (RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18)
+*Paquetes:* `personas`, `simulacion`
+
 - Jerarquía: adulto, niño, movilidad reducida, personal de rescate.
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
@@ -117,7 +218,7 @@ Cada integrante es responsable de sus módulos y de sus pruebas; todos participa
 
 ## 7. Estado actual del repositorio
 
-Actualmente el repo contiene un único archivo, **`EvacuaPrototipo.java`**: un **prototipo de interfaz** en Java Swing, de un solo archivo y sin dependencias externas.
+Actualmente el repo contiene un único archivo, **`EvacuaPrototipo.java`**: un **prototipo de interfaz** en Java Swing, de un solo archivo y sin dependencias externas. Hoy está en la raíz del repo; la estructura de 6.1 propone moverlo a `prototipo/` cuando se cree `src/`.
 
 Qué ofrece el prototipo:
 - Dibuja el edificio como una **cuadrícula**: cada celda es un nodo (`H` habitación, `P` pasillo, `E` escalera, `S` salida, `.` vacío; minúscula = bloqueado).
