@@ -7,7 +7,6 @@ Integrantes:
 - Pucho Lizana, Pedro Eduardo Mar (Integrante 1)
 - Zavaleta Calderon, Steven Jack (Integrante 2)
 - Ayala Navarro, Piero Daniel (Integrante 3)
-- Flores Escalante, Angel Giovanny (Integrante 4)
 
 > **Para otra IA / colaborador:** este README resume el proyecto para que puedas entender qué se construye, con qué reglas y cómo se reparte el trabajo. Léelo completo antes de generar o modificar código. Si algo del código contradice este documento, pregunta antes de asumir cuál tiene razón.
 
@@ -95,28 +94,26 @@ Cada integrante es responsable de sus módulos y de sus pruebas; todos participa
 - Registro, guardado y carga de escenarios en base de datos.
 - Exportación individual por persona (usa la bitácora e historial del Integrante 3).
 - Comparación de resultados entre escenarios guardados.
+- *(Reasignado)* Reportes y estadísticas de cada simulación: tiempo total, tiempo promedio, evacuados/no evacuados y nodos más congestionados (usa los resultados del motor del Integrante 3).
 - Configuración del repositorio, integración completa y coordinación de entregas.
 
-**Integrante 2: Edificio, rutas, bloqueos e importación de planos** (RN-02, RN-03, RN-04, RN-05, RN-06, RN-07, RN-15, RN-16)
+**Integrante 2: Edificio, rutas, bloqueos e importación de planos** (RN-02, RN-03, RN-04, RN-05, RN-06, RN-07, RN-15, RN-16, RN-19)
 - Grafo del edificio con CRUD de nodos, estados y capacidades.
 - Gestión de bloqueos (marcar/desbloquear) y su exclusión del cálculo de rutas.
 - Dijkstra y A\* con comparación de nodos explorados y tiempo.
 - Recálculo dinámico desde la posición actual, expuesto como operación reutilizable para el motor de simulación.
 - Parser de planos `.json`/`.txt`/`.xml` con validación, y archivos de plano de prueba.
+- *(Reasignado)* Interfaz Swing: dibuja edificio, personas y rutas en tiempo real (aprovecha las coordenadas x, y de los nodos).
+- *(Reasignado)* Acumulación de ocupación por nodo y mapa de calor en Swing al finalizar la simulación (RN-19).
 
-**Integrante 3: Personas y comportamiento** (RN-08, RN-11, RN-12, RN-13, RN-17, RN-18)
+**Integrante 3: Personas y comportamiento** (RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18)
 - Jerarquía: adulto, niño, movilidad reducida, personal de rescate.
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
 - Control de capacidad de nodos (Congestionado, mayor tiempo de recorrido).
-
-**Integrante 4: Simulación, reportes y visualización** (RN-09, RN-19)
-- Motor de simulación paso a paso (integra eventos aleatorios, recálculo y congestión).
-- Tiempos de evacuación, cuellos de botella y no evacuados dentro del tiempo límite.
-- Reportes y estadísticas por simulación.
-- Interfaz Swing: edificio, personas y rutas en tiempo real.
-- Acumulación de ocupación por nodo y mapa de calor en Swing.
+- *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
+- *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
 
 ## 7. Estado actual del repositorio
 
@@ -152,9 +149,9 @@ java EvacuaPrototipo
 2. **Lenguaje y UI:** Java; interfaz solo con Swing.
 3. **Estructuras propias:** el curso exige implementar las estructuras de datos (listas, pila, cola, heap); no las sustituyas por `java.util` en los módulos donde se piden propias, salvo que el equipo lo indique.
 4. **Respeta los límites de módulo** de la sección 6; una tarea corresponde a un integrante. Los puntos de contacto son:
-   - Integrante 2 → expone *recálculo de ruta desde posición actual* al motor.
-   - Integrante 3 → provee bitácora e historial a la exportación (Integrante 1) y activa el recálculo ante eventos.
-   - Integrante 4 → consume rutas, estado de nodos y personas para simular, reportar y dibujar.
+   - Integrante 2 → expone *recálculo de ruta desde posición actual* al motor, y consume el estado de la simulación para dibujar y generar el mapa de calor.
+   - Integrante 3 → provee bitácora e historial a la exportación (Integrante 1), activa el recálculo ante eventos y es dueño del motor de simulación.
+   - Integrante 1 → consume los resultados del motor para reportes, comparación y persistencia.
 5. **A\* debe ser admisible** (RN-16): convierte la distancia heurística a tiempo de recorrido para no sobreestimar.
 6. **Determinismo:** los eventos aleatorios deben usar la semilla configurable para poder repetir una simulación.
 7. **Validar antes de modificar:** la importación de planos y el guardado de escenarios validan primero (RN-10, RN-15) y nunca dejan el edificio en un estado a medias.
