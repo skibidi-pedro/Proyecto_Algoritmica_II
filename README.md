@@ -34,6 +34,7 @@ Integrantes:
 | **Estrés** | Valor de 0 a 100 por persona. Sube por congestión, recálculos de ruta y cercanía a peligros; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
 | **Bitácora** | Registro inmutable por persona: cada nodo visitado + paso de simulación (timestamp) + estado del nodo en ese instante. Lista doble o pila. |
 | **Escenario** | Edificio + personas + bloqueos, guardado en base de datos para repetir o comparar simulaciones. |
+| **Desastre** | Tipo de emergencia que se simula: Terremoto, Incendio, Inundación, Fuga de gas, etc. Cada tipo define cómo se bloquean zonas, cuánto estrés genera y cómo evoluciona (RN-20). |
 | **Mapa de calor** | Visualización final de la ocupación/congestión acumulada por nodo. |
 
 ## 3. Funcionalidades (módulos)
@@ -49,6 +50,7 @@ Integrantes:
 9. **Trazabilidad y comportamiento de `Persona`.** Bitácora, estrés dinámico (0–100), historial de eventos (bloqueos sufridos, recálculos, tiempo de espera en cuellos de botella) y archivo individual con la línea de tiempo.
 10. **Importación de planos.** Parser Java para `.json`, `.txt` o `.xml` que valida el archivo y construye el grafo sin alterar el edificio actual si hay errores. Las coordenadas (x, y) sirven para la heurística de A* y para dibujar el plano.
 11. **Optimización y simulación estocástica.** Rescate prioriza niños y personas con movilidad reducida antes de evacuar; eventos aleatorios (colapso de pasillos) que fuerzan recálculo; acumulación de ocupación para el mapa de calor.
+12. **Tipos de desastre.** Al iniciar la emergencia se elige el tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo tiene su propia dinámica: qué zonas bloquea, cómo se propaga o evoluciona en el tiempo, cuánto estrés genera y si afecta la velocidad. Los eventos aleatorios del módulo 11 pasan a depender del desastre elegido.
 
 ## 4. Reglas del negocio
 
@@ -75,6 +77,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-17 | Personal de rescate | Va primero a nodos con niños o movilidad reducida y solo después a una salida, salvo que su ruta se bloquee o se agote el tiempo. |
 | RN-18 | Eventos aleatorios | En cada paso puede ocurrir un evento (p. ej. colapso de pasillo) con probabilidad configurable; el elemento pasa a Bloqueado y se aplica RN-07. Una **semilla configurable** permite repetir la secuencia. |
 | RN-19 | Mapa de calor | Se acumula ocupación/congestión por nodo; al finalizar, Swing muestra el mapa de calor. |
+| RN-20 | Tipos de desastre | La simulación se inicia con un tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo define qué nodos o conexiones bloquea, su evolución paso a paso (por ejemplo, el incendio se propaga a nodos vecinos y el terremoto colapsa pasillos y escaleras al azar), el estrés que genera y su probabilidad e intensidad configurables. Con la misma semilla el desastre se repite igual (RN-18). Los bloqueos que provoca activan el recálculo de rutas (RN-07). |
 
 ## 5. Estructuras de datos y algoritmos
 
@@ -160,7 +163,7 @@ Proyecto_Algoritmica_II/
 |---|---|---|---|
 | 1 | Núcleo, persistencia, reportes e integración | `Main`, `estructuras`, `persistencia`, `reportes` | RN-01, RN-10, RN-14 |
 | 2 | Edificio, rutas, importación e interfaz | `edificio`, `rutas`, `importacion`, `vista`, `recursos/planos` | RN-02 a RN-07, RN-15, RN-16, RN-19 |
-| 3 | Personas, comportamiento y motor de simulación | `personas`, `simulacion` | RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18 |
+| 3 | Personas, comportamiento y motor de simulación | `personas`, `simulacion` | RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18, RN-20 |
 
 ### 6.3 Puntos de contacto entre paquetes
 
@@ -198,13 +201,14 @@ Proyecto_Algoritmica_II/
 - *(Reasignado)* Interfaz Swing: dibuja edificio, personas y rutas en tiempo real (aprovecha las coordenadas x, y de los nodos).
 - *(Reasignado)* Acumulación de ocupación por nodo y mapa de calor en Swing al finalizar la simulación (RN-19).
 
-**Integrante 3: Personas y comportamiento** (RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18)
+**Integrante 3: Personas y comportamiento** (RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18, RN-20)
 *Paquetes:* `personas`, `simulacion`
 
 - Jerarquía: adulto, niño, movilidad reducida, personal de rescate.
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
+- *(Pendiente)* Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, punto 8).
 - Control de capacidad de nodos (Congestionado, mayor tiempo de recorrido).
 - *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
 - *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
@@ -223,8 +227,27 @@ Pisos: el edificio puede tener varios pisos. El edificio original es el **piso 1
 Limitaciones conocidas:
 - La interfaz dibuja un piso a la vez como cuadrícula: un plano importado se ubica por las coordenadas `x` (columna) e `y` (fila), y las conexiones no se dibujan como líneas.
 - El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. La capacidad de las conexiones se valida y se guarda, pero la congestión se controla por nodo.
-- La "base de datos" es un almacén embebido en archivos (sin servidor ni SQL). Si el curso exige SQL, `BaseDatos` es el único punto a reemplazar por JDBC.
+- La "base de datos" es un almacén embebido en archivos (carpeta `datos/`), sin servidor.
 - La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) o importando un plano.
+
+### 7.1 Pendiente por implementar
+
+Lo que todavía falta para cumplir el documento por completo:
+
+1. **Dibujar las rutas de evacuación (2.8).** La interfaz dibuja personas, bloqueos y mapa de calor, pero no la ruta asignada a cada persona. Dibujar la ruta en el piso que se está viendo. *(Integrante 2, `vista`)*
+2. **Recalcular por congestión (2.3).** Hoy se recalcula cuando un camino se bloquea; si un nodo se llena, la persona solo espera. Debe buscar otro camino cuando su próximo nodo esté congestionado. *(Integrante 3 con el recálculo del Integrante 2)*
+3. **Estados dañado y peligroso (2.4).** Solo existe "bloqueado". Agregar los estados dañado y peligroso para nodos y conexiones, y poder bloquear conexiones desde la interfaz (hoy solo por código). *(Integrante 2)*
+4. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy se hace importando un plano o por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
+5. **Exportar los reportes individuales al terminar (RN-14).** Hoy se exportan con un botón; deben generarse automáticamente cuando termina la simulación, haya evacuado o no cada persona. *(Integrante 1)*
+6. **Capacidad de las conexiones (RN-03).** Se valida y se guarda, pero la simulación solo controla la capacidad por nodo. Hacer que también limite cuántas personas cruzan una conexión a la vez. *(Integrante 3 con Integrante 2)*
+7. **Usar `Pila` y `Cola`.** Están implementadas y probadas, pero la simulación todavía no las usa (por ejemplo, la cola de espera en un nodo lleno). *(Integrante 1)*
+8. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
+   - **Terremoto:** colapsa pasillos y escaleras al azar, con réplicas; mucho estrés al inicio; las personas se mueven más lento.
+   - **Incendio:** empieza en un nodo y se propaga a los vecinos cada cierto número de pasos; bloquea los nodos quemados; el estrés sube por cercanía al fuego.
+   - **Inundación:** el agua sube desde el piso 1 y bloquea los nodos de los pisos bajos poco a poco; empuja a la gente hacia arriba.
+   - **Fuga de gas:** marca una zona como peligrosa que crece con el tiempo; no la bloquea del todo, pero eleva el estrés y la velocidad baja.
+
+   Estructura sugerida: `simulacion/Desastre.java` (clase base con `paso(motor)`), una clase por tipo, `TipoDesastre.java` (enum para el selector) y una lista desplegable en "Configurar parámetros de simulación". Cada desastre lleva su probabilidad, intensidad y semilla. *(Integrante 3, con `vista` del Integrante 2 para el selector)*
 
 Formato `.txt` (cuadrícula, ver `recursos/planos/edificio_3pisos.txt`):
 ```
@@ -261,7 +284,7 @@ En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar
 
 ## 8. Instrucciones para una IA que trabaje en este proyecto
 
-1. **Respeta las reglas de negocio (RN-01 a RN-19)**; cítalas por código al implementar o revisar algo.
+1. **Respeta las reglas de negocio (RN-01 a RN-20)**; cítalas por código al implementar o revisar algo.
 2. **Lenguaje y UI:** Java; interfaz solo con Swing.
 3. **Estructuras propias:** el curso exige implementar las estructuras de datos (listas, pila, cola, heap); no las sustituyas por `java.util` en los módulos donde se piden propias, salvo que el equipo lo indique.
 4. **Respeta los límites de módulo** de la sección 6; una tarea corresponde a un integrante. Los puntos de contacto son:
