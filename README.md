@@ -88,7 +88,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 
 Cada integrante es responsable de sus módulos y de sus pruebas; todos participan en la integración final. Las interfaces entre roles están definidas para poder trabajar en paralelo.
 
-### 6.1 Estructura de carpetas (propuesta)
+### 6.1 Estructura de carpetas
 
 Cada integrante es **dueño de sus paquetes** dentro de `src/`. No se editan archivos de otro paquete sin avisar; la comunicación entre paquetes se hace solo por las clases públicas indicadas en 6.3.
 
@@ -96,69 +96,46 @@ Cada integrante es **dueño de sus paquetes** dentro de `src/`. No se editan arc
 Proyecto_Algoritmica_II/
 ├── README.md
 ├── prototipo/
-│   └── EvacuaPrototipo.java        <- prototipo de interfaz actual (referencia)
+│   └── EvacuaPrototipo.java        <- prototipo original de un solo archivo (referencia)
 ├── src/
 │   └── evacua/
-│       ├── Main.java                         [Integrante 1]
+│       ├── Main.java                         [Integrante 1] punto de entrada
 │       │
-│       ├── estructuras/                      [Integrante 1]
-│       │   ├── ListaSimple.java
-│       │   ├── ListaDoble.java
-│       │   ├── Pila.java
-│       │   ├── Cola.java
-│       │   └── ColaPrioridad.java            (heap)
+│       ├── estructuras/                      [Integrante 1] (por crear)
+│       │   └── ListaSimple, ListaDoble, Pila, Cola, ColaPrioridad (heap)
 │       ├── persistencia/                     [Integrante 1]
-│       │   ├── BaseDatos.java
-│       │   └── GestorEscenarios.java         (guardar / cargar, RN-10)
+│       │   └── GestorEscenarios.java         (guardar / cargar escenarios, RN-10)
 │       ├── reportes/                         [Integrante 1]
-│       │   ├── ReporteSimulacion.java
-│       │   ├── ComparadorEscenarios.java
-│       │   └── ExportadorIndividual.java     (RN-14)
+│       │   └── ReporteSimulacion.java        (reporte general e individual, RN-14)
 │       │
 │       ├── edificio/                         [Integrante 2]
+│       │   ├── Edificio.java                 (cuadricula de nodos + personas)
 │       │   ├── Nodo.java
-│       │   ├── Conexion.java
-│       │   ├── Edificio.java                 (grafo + CRUD + bloqueos)
-│       │   ├── TipoNodo.java                 (Habitación, Pasillo, Escalera, Salida)
-│       │   └── EstadoNodo.java               (Libre, Congestionado, Bloqueado)
+│       │   └── TipoNodo.java                 (Vacio, Habitacion, Pasillo, Escalera, Salida)
 │       ├── rutas/                            [Integrante 2]
-│       │   ├── Dijkstra.java
-│       │   ├── AEstrella.java
-│       │   ├── Heuristica.java               (euclidiana / Manhattan -> tiempo)
-│       │   ├── ResultadoRuta.java            (ruta, nodos explorados, tiempo)
-│       │   └── RecalculadorRutas.java        (RN-07)
+│       │   ├── BuscadorRutas.java            (Dijkstra y A*)
+│       │   ├── Heuristica.java               (distancia Manhattan a la salida)
+│       │   └── ResultadoRuta.java            (ruta, nodos explorados, tiempo)
 │       ├── importacion/                      [Integrante 2]
-│       │   ├── ParserPlano.java
-│       │   ├── ParserJson.java
-│       │   ├── ParserTxt.java
-│       │   ├── ParserXml.java
-│       │   └── ValidadorPlano.java           (RN-15)
+│       │   └── ParserPlano.java              (parser y validacion del plano, RN-15)
 │       ├── vista/                            [Integrante 2]
-│       │   ├── VentanaPrincipal.java         (Swing)
-│       │   ├── PanelEdificio.java            (edificio, personas y rutas)
-│       │   └── MapaCalor.java                (RN-19)
+│       │   ├── VentanaPrincipal.java         (Swing: botones, estado, registro)
+│       │   ├── PanelEdificio.java            (dibuja edificio, personas y mapa de calor)
+│       │   └── Herramienta.java
 │       │
 │       ├── personas/                         [Integrante 3]
-│       │   ├── Persona.java                  (clase base)
-│       │   ├── Adulto.java
-│       │   ├── Nino.java
-│       │   ├── MovilidadReducida.java
-│       │   ├── PersonalRescate.java          (RN-17)
-│       │   ├── Bitacora.java                 (RN-11)
-│       │   ├── RegistroBitacora.java
-│       │   ├── NivelEstres.java              (RN-12)
-│       │   └── HistorialEventos.java         (RN-13)
+│       │   ├── Persona.java                  (incluye bitacora `hist`, estres, recalculos)
+│       │   ├── TipoPersona.java              (Adulto, Nino, Movilidad reducida, Rescate)
+│       │   └── EstadoSalud.java
 │       └── simulacion/                       [Integrante 3]
-│           ├── MotorSimulacion.java          (paso a paso)
-│           ├── EventoAleatorio.java          (RN-18)
-│           ├── ControlCapacidad.java         (RN-08)
-│           └── ResultadoSimulacion.java      (tiempos, cuellos de botella, RN-09)
-├── recursos/
-│   └── planos/                               [Integrante 2] planos de prueba (.json, .txt, .xml)
-├── test/                                     cada integrante prueba sus paquetes
-│   └── evacua/ (estructuras, edificio, rutas, importacion, personas, simulacion, ...)
+│           ├── MotorSimulacion.java          (paso a paso, eventos, recalculo, congestion)
+│           └── ParametrosSimulacion.java     (probabilidad, semilla, limite, umbral, capacidad)
+├── recursos/planos/                          [Integrante 2] planos de prueba (por crear)
+├── test/                                     cada integrante prueba sus paquetes (por crear)
 └── docs/                                     informe, diagrama de casos de uso
 ```
+
+> Los archivos de `src/` ya existen: son el prototipo dividido por paquetes, con el mismo comportamiento. Lo que falta del diseño final (grafo explicito con conexiones, estructuras propias, base de datos, parser `.json`/`.xml`, `RecalculadorRutas`, `Dijkstra`/`AEstrella` separados, clases derivadas de `Persona`, `Bitacora`, `MapaCalor`) se implementa dentro de estos mismos paquetes.
 
 ### 6.2 Resumen por integrante
 
@@ -172,14 +149,15 @@ Proyecto_Algoritmica_II/
 
 | Quien provee | Clase / operación | Quien la usa |
 |---|---|---|
-| Integrante 1 | `estructuras.*` (listas, pila, cola, heap) | Todos (grafo, bitácora, búsqueda de rutas) |
-| Integrante 2 | `RecalculadorRutas`, `Dijkstra`, `AEstrella`, `Edificio` | `simulacion.MotorSimulacion` (Integrante 3) |
-| Integrante 3 | `Bitacora`, `HistorialEventos`, `Persona` | `reportes.ExportadorIndividual` (Integrante 1) |
-| Integrante 3 | `ResultadoSimulacion` | `reportes.*` (Integrante 1) y `vista.*` (Integrante 2) |
-| Integrante 3 | `EventoAleatorio` (bloquea un elemento) | `RecalculadorRutas` (Integrante 2) |
-| Integrante 1 | `GestorEscenarios` | `Main` y `vista` (Integrante 2) |
+| Integrante 1 | `estructuras.*` (listas, pila, cola, heap), cuando existan | Todos (grafo, bitácora, búsqueda de rutas) |
+| Integrante 2 | `BuscadorRutas.buscar(...)`, `Edificio` | `simulacion.MotorSimulacion` (Integrante 3): asignar y recalcular rutas |
+| Integrante 3 | `Persona` (bitácora `hist`, estrés, recálculos) | `reportes.ReporteSimulacion` (Integrante 1): reporte individual |
+| Integrante 3 | `MotorSimulacion` (tiempos, evacuadas, cuellos de botella) | `reportes.ReporteSimulacion` (Integrante 1) y `vista.*` (Integrante 2) |
+| Integrante 3 | `MotorSimulacion.generarEvento()` (bloquea un pasillo) | Recálculo de rutas del Integrante 2 |
+| Integrante 1 | `GestorEscenarios` | `vista.VentanaPrincipal` (Integrante 2) y `Main` |
+| Integrante 2 | `ParserPlano` | `GestorEscenarios` (Integrante 1) |
 
-> Los nombres de clases y carpetas son una propuesta inicial; si se renombra algo, actualiza también esta sección.
+> Estos son los puntos de contacto actuales. Si se agregan o renombran clases (por ejemplo `RecalculadorRutas` o `Bitacora`), actualiza esta sección.
 
 ### 6.4 Tareas por integrante
 
@@ -218,16 +196,16 @@ Proyecto_Algoritmica_II/
 
 ## 7. Estado actual del repositorio
 
-Actualmente el repo contiene un único archivo, **`EvacuaPrototipo.java`**: un **prototipo de interfaz** en Java Swing, de un solo archivo y sin dependencias externas. Hoy está en la raíz del repo; la estructura de 6.1 propone moverlo a `prototipo/` cuando se cree `src/`.
+El repo contiene el **prototipo** del simulador, ya dividido por paquetes en `src/evacua/` (ver 6.1), y el prototipo original de un solo archivo en `prototipo/EvacuaPrototipo.java` como referencia. Es Java Swing, sin dependencias externas.
 
-Qué ofrece el prototipo:
+Qué ofrece hoy:
 - Dibuja el edificio como una **cuadrícula**: cada celda es un nodo (`H` habitación, `P` pasillo, `E` escalera, `S` salida, `.` vacío; minúscula = bloqueado).
 - Tipos de persona con velocidad propia (Adulto, Niño, Movilidad reducida, Rescate) y estados de salud.
 - Motor de simulación con eventos aleatorios (probabilidad y semilla), estrés, umbral, tiempo límite y capacidad por nodo.
 - Búsqueda de rutas con **Dijkstra y A\*** conmutables, y comparación de ambos.
-- Carga/guardado de escenarios y plano en `.txt`, comparación de escenarios, reporte general y exportación individual.
+- Carga/guardado de escenarios y plano en `.txt`, comparación de escenarios, reporte general, exportación individual y mapa de calor.
 
-Formato `.txt` del prototipo:
+Formato `.txt` del plano/escenario:
 ```
 HHHPPSS      <- filas de la cuadrícula (todas con el mismo largo, al menos una S)
 H..P.E.      <- '.' = sin nodo, minúscula = bloqueado
@@ -236,13 +214,14 @@ H..P.E.      <- '.' = sin nodo, minúscula = bloqueado
 0 2 RESCATE SANO
 ```
 
-**Importante:** el prototipo sirve para validar la idea y la interfaz; el diseño final descrito arriba usa un **grafo explícito** (nodos con coordenadas y conexiones con peso y capacidad), una **base de datos**, un parser `.json`/`.txt`/`.xml` y estructuras de datos propias. El prototipo no sigue todavía esa arquitectura ni la separación de módulos por integrante.
+**Importante:** el diseño final descrito arriba usa un **grafo explícito** (nodos con coordenadas y conexiones con peso y capacidad), una **base de datos**, un parser `.json`/`.txt`/`.xml` y estructuras de datos propias. El prototipo aún no los tiene: es el punto de partida para construirlos dentro de cada paquete.
 
-Para ejecutarlo (por ejemplo en NetBeans): crear un proyecto Java, colocar el archivo en el paquete por defecto y ejecutar. Desde terminal, con JDK instalado:
+Compilar y ejecutar (JDK 11 o superior):
 ```
-javac EvacuaPrototipo.java
-java EvacuaPrototipo
+javac -d out $(find src -name "*.java")
+java -cp out evacua.Main
 ```
+En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar `evacua.Main`.
 
 ## 8. Instrucciones para una IA que trabaje en este proyecto
 
