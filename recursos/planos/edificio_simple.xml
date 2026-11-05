@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edificio>
+  <nodos>
+    <nodo id="H1" tipo="HABITACION" x="1" y="1"/>
+    <nodo id="P1" tipo="PASILLO" x="2" y="1"/>
+    <nodo id="P2" tipo="PASILLO" x="3" y="1"/>
+    <nodo id="E1" tipo="ESCALERA" x="4" y="1"/>
+    <nodo id="S1" tipo="SALIDA" x="5" y="1"/>
+    <nodo id="H2" tipo="HABITACION" x="2" y="2"/>
+  </nodos>
+  <conexiones>
+    <conexion origen="H1" destino="P1" tiempo="1" capacidad="3"/>
+    <conexion origen="P1" destino="P2" tiempo="1" capacidad="5"/>
+    <conexion origen="P2" destino="E1" tiempo="3" capacidad="2"/>
+    <conexion origen="E1" destino="S1" tiempo="1" capacidad="4"/>
+    <conexion origen="P1" destino="H2" tiempo="1" capacidad="2"/>
+    <conexion origen="H2" destino="S1" tiempo="5" capacidad="1"/>
+  </conexiones>
+  <personas>
+    <persona nodo="H1" tipo="ADULTO" salud="SANO"/>
+    <persona nodo="H2" tipo="NINO" salud="SANO"/>
+  </personas>
+</edificio>
