@@ -7,7 +7,7 @@ import evacua.edificio.TipoNodo;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
 import evacua.personas.TipoPersona;
-import evacua.rutas.BuscadorRutas;
+import evacua.rutas.RecalculadorRutas;
 import evacua.rutas.ResultadoRuta;
 
 import java.util.ArrayList;
@@ -60,14 +60,14 @@ public class MotorSimulacion {
         }
         ResultadoRuta r;
         if (p.objetivo != null) {
-            r = BuscadorRutas.buscar(mapa, p.f, p.c, Collections.singletonList(new int[]{p.objetivo.f, p.objetivo.c}), params.astar);
+            r = RecalculadorRutas.desdePosicion(mapa, p, Collections.singletonList(new int[]{p.objetivo.f, p.objetivo.c}), params.astar);
             if (r.ruta == null) p.objetivo = null;
             else exploradosTotal += r.explorados;
         } else {
             r = null;
         }
         if (p.objetivo == null) {
-            r = BuscadorRutas.buscar(mapa, p.f, p.c, mapa.salidas(), params.astar);
+            r = RecalculadorRutas.desdePosicion(mapa, p, mapa.salidas(), params.astar);
             exploradosTotal += r.explorados;
         }
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);

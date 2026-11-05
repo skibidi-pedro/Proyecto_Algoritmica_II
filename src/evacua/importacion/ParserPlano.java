@@ -13,6 +13,14 @@ public class ParserPlano {
     private ParserPlano() {
     }
 
+    /** Lee un plano segun la extension del archivo (.json, .xml o .txt). Si es invalido lanza IllegalArgumentException. */
+    public static Edificio leer(String contenido, String nombreArchivo) {
+        String n = nombreArchivo == null ? "" : nombreArchivo.toLowerCase();
+        if (n.endsWith(".json")) return ConstructorEdificio.construir(ParserJson.parse(contenido));
+        if (n.endsWith(".xml")) return ConstructorEdificio.construir(ParserXml.parse(contenido));
+        return deTexto(contenido);
+    }
+
     /** Valida y construye. Lanza IllegalArgumentException con el motivo del error. */
         public static Edificio deTexto(String txt) {
             String[] lineas = txt.split("\\R");

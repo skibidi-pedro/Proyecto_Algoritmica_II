@@ -39,7 +39,7 @@ public class GestorEscenarios {
     /** Lee y valida un escenario. Lanza IllegalArgumentException si no se puede leer o es invalido. */
     public static Edificio leer(File f) {
         try {
-            return ParserPlano.deTexto(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+            return ParserPlano.leer(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8), f.getName());
         } catch (IOException ex) {
             throw new IllegalArgumentException("No se pudo leer el archivo: " + ex.getMessage());
         }

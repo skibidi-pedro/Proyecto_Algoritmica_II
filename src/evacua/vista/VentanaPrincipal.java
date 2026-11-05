@@ -2,7 +2,6 @@ package evacua.vista;
 
 import evacua.edificio.Edificio;
 import evacua.edificio.TipoNodo;
-import evacua.importacion.ParserPlano;
 import evacua.persistencia.GestorEscenarios;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
@@ -242,7 +241,7 @@ public class VentanaPrincipal extends JFrame {
             return;
         }
         timer.stop();
-        Edificio copia = ParserPlano.deTexto(GestorEscenarios.aTexto(mapa, true));
+        Edificio copia = mapa.copia();
         motor = new MotorSimulacion(copia, params.copia(), this::log);
         motor.iniciar();
         grid.ajustarTamano();
