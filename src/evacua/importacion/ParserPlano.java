@@ -21,56 +21,79 @@ public class ParserPlano {
         return deTexto(contenido);
     }
 
-    /** Valida y construye. Lanza IllegalArgumentException con el motivo del error. */
-        public static Edificio deTexto(String txt) {
-            String[] lineas = txt.split("\\R");
-            List<String> grid = new ArrayList<>();
-            int i = 0;
-            while (i < lineas.length && lineas[i].trim().isEmpty()) i++;
-            while (i < lineas.length && !lineas[i].trim().isEmpty() && !lineas[i].startsWith("#")) {
-                grid.add(lineas[i].trim());
-                i++;
+    /**
+     * Lee el plano en texto. Cada piso es un bloque de filas; "#PISO n" empieza el siguiente piso.
+     * Luego "#PERSONAS" y lineas "fila columna TIPO SALUD" (fila global) o "piso fila columna TIPO SALUD".
+     * Valida y construye; lanza IllegalArgumentException con el motivo del error.
+     */
+    public static Edificio deTexto(String txt) {
+        String[] lineas = txt.split("\\R");
+        List<List<String>> pisos = new ArrayList<>();
+        List<String> actual = new ArrayList<>();
+        List<String> personas = new ArrayList<>();
+        for (String raw : lineas) {
+            String ln = raw.trim();
+            if (ln.isEmpty()) continue;
+            if (ln.toUpperCase().startsWith("#PISO") || ln.startsWith("---")) {
+                if (!actual.isEmpty()) pisos.add(actual);
+                actual = new ArrayList<>();
+            } else if (ln.startsWith("#")) {
+                continue;
+            } else if (ln.matches("\\S+") && personas.isEmpty()) {
+                actual.add(ln);
+            } else {
+                personas.add(ln);
             }
-            if (grid.isEmpty()) throw new IllegalArgumentException("El archivo no contiene un plano.");
-            int cols = grid.get(0).length();
-            Edificio m = new Edificio(grid.size(), cols);
-            boolean haySalida = false;
-            for (int f = 0; f < grid.size(); f++) {
+        }
+        if (!actual.isEmpty()) pisos.add(actual);
+        if (pisos.isEmpty()) throw new IllegalArgumentException("El archivo no contiene un plano.");
+        int filasPiso = pisos.get(0).size();
+        int cols = pisos.get(0).get(0).length();
+        Edificio m = new Edificio(filasPiso, cols, pisos.size());
+        boolean haySalida = false;
+        for (int p = 0; p < pisos.size(); p++) {
+            List<String> grid = pisos.get(p);
+            if (grid.size() != filasPiso)
+                throw new IllegalArgumentException("El piso " + (p + 1) + " tiene " + grid.size() + " filas y se esperaban " + filasPiso + ".");
+            for (int f = 0; f < filasPiso; f++) {
                 String ln = grid.get(f);
                 if (ln.length() != cols)
-                    throw new IllegalArgumentException("La fila " + (f + 1) + " tiene " + ln.length()
+                    throw new IllegalArgumentException("La fila " + (f + 1) + " del piso " + (p + 1) + " tiene " + ln.length()
                             + " columnas y se esperaban " + cols + ".");
                 for (int c = 0; c < cols; c++) {
                     char ch = ln.charAt(c);
                     TipoNodo t = ch == '.' ? TipoNodo.VACIO : TipoNodo.de(ch);
                     if (t == null)
-                        throw new IllegalArgumentException("Caracter invalido '" + ch + "' en fila "
+                        throw new IllegalArgumentException("Caracter invalido '" + ch + "' en piso " + (p + 1) + ", fila "
                                 + (f + 1) + ", columna " + (c + 1) + ".");
-                    m.n[f][c].tipo = t;
-                    m.n[f][c].bloqueado = t != TipoNodo.VACIO && Character.isLowerCase(ch);
+                    int g = p * filasPiso + f;
+                    m.n[g][c].tipo = t;
+                    m.n[g][c].bloqueado = t != TipoNodo.VACIO && Character.isLowerCase(ch);
                     if (t == TipoNodo.SALIDA) haySalida = true;
                 }
             }
-            if (!haySalida) throw new IllegalArgumentException("El plano debe tener al menos una salida (S).");
-            for (; i < lineas.length; i++) {
-                String ln = lineas[i].trim();
-                if (ln.isEmpty() || ln.startsWith("#")) continue;
-                String[] tk = ln.split("\\s+");
-                int f, c;
-                TipoPersona tp;
-                EstadoSalud es;
-                try {
-                    f = Integer.parseInt(tk[0]);
-                    c = Integer.parseInt(tk[1]);
-                    tp = TipoPersona.valueOf(tk[2]);
-                    es = EstadoSalud.valueOf(tk[3]);
-                } catch (RuntimeException ex) {
-                    throw new IllegalArgumentException("Linea de persona invalida: \"" + ln + "\".");
-                }
-                if (!m.caminable(f, c))
-                    throw new IllegalArgumentException("La persona en (" + f + "," + c + ") no esta sobre un nodo libre.");
-                m.agregar(tp, es, f, c);
-            }
-            return m;
         }
+        if (!haySalida) throw new IllegalArgumentException("El plano debe tener al menos una salida (S).");
+        for (String ln : personas) {
+            String[] tk = ln.split("\\s+");
+            int f, c;
+            TipoPersona tp;
+            EstadoSalud es;
+            try {
+                int o = tk.length == 5 ? 1 : 0;
+                f = Integer.parseInt(tk[o]);
+                c = Integer.parseInt(tk[o + 1]);
+                if (tk.length == 5) f = (Integer.parseInt(tk[0]) - 1) * filasPiso + f;
+                tp = TipoPersona.valueOf(tk[o + 2]);
+                es = EstadoSalud.valueOf(tk[o + 3]);
+                if (tk.length != 4 && tk.length != 5) throw new IllegalArgumentException();
+            } catch (RuntimeException ex) {
+                throw new IllegalArgumentException("Linea de persona invalida: \"" + ln + "\".");
+            }
+            if (!m.caminable(f, c))
+                throw new IllegalArgumentException("La persona en (" + f + "," + c + ") no esta sobre un nodo libre.");
+            m.agregar(tp, es, f, c);
+        }
+        return m;
+    }
 }

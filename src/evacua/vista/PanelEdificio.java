@@ -42,14 +42,16 @@ public class PanelEdificio extends JPanel {
 
     void ajustarTamano() {
         Edificio m = v.vista();
-        setPreferredSize(new Dimension(m.cols * CELL + 1, m.filas * CELL + 1));
+        setPreferredSize(new Dimension(m.cols * CELL + 1, m.filasPorPiso * CELL + 1));
         revalidate();
         repaint();
     }
 
     private void aplicar(MouseEvent e, boolean click) {
         Edificio m = v.vista();
-        int c = e.getX() / CELL, f = e.getY() / CELL;
+        int piso = Math.min(v.pisoActual, m.pisos - 1);
+        if (e.getY() / CELL >= m.filasPorPiso) return;
+        int c = e.getX() / CELL, f = piso * m.filasPorPiso + e.getY() / CELL;
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
         if (v.herramienta == Herramienta.BLOQUEO) {
@@ -107,14 +109,15 @@ public class PanelEdificio extends JPanel {
 
         // cuadricula de fondo
         g.setColor(new Color(205, 205, 205));
-        for (int i = 0; i <= m.filas; i++) g.drawLine(0, i * CELL, m.cols * CELL, i * CELL);
-        for (int j = 0; j <= m.cols; j++) g.drawLine(j * CELL, 0, j * CELL, m.filas * CELL);
+        int piso = Math.min(v.pisoActual, m.pisos - 1), base = piso * m.filasPorPiso;
+        for (int i = 0; i <= m.filasPorPiso; i++) g.drawLine(0, i * CELL, m.cols * CELL, i * CELL);
+        for (int j = 0; j <= m.cols; j++) g.drawLine(j * CELL, 0, j * CELL, m.filasPorPiso * CELL);
 
         // nodos como cuadros
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
-        for (int i = 0; i < m.filas; i++) {
+        for (int i = 0; i < m.filasPorPiso; i++) {
             for (int j = 0; j < m.cols; j++) {
-                Nodo nd = m.n[i][j];
+                Nodo nd = m.n[base + i][j];
                 if (nd.tipo == TipoNodo.VACIO) continue;
                 int x = j * CELL, y = i * CELL;
                 g.setColor(nd.tipo.color);
@@ -145,11 +148,11 @@ public class PanelEdificio extends JPanel {
         double[][] off = {{0.3, 0.3}, {0.7, 0.3}, {0.3, 0.7}, {0.7, 0.7}};
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
         for (Persona p : m.personas) {
-            if (p.evacuada) continue;
+            if (p.evacuada || m.piso(p.f) != piso) continue;
             int key = p.f * m.cols + p.c;
             int k = contador.merge(key, 1, Integer::sum) - 1;
             double[] o = off[Math.min(k, 3)];
-            int cx = (int) (p.c * CELL + o[0] * CELL), cy = (int) (p.f * CELL + o[1] * CELL);
+            int cx = (int) (p.c * CELL + o[0] * CELL), cy = (int) ((p.f - base) * CELL + o[1] * CELL);
             int d = 15;
             g.setColor(p.tipo.color);
             g.fillOval(cx - d / 2, cy - d / 2, d, d);

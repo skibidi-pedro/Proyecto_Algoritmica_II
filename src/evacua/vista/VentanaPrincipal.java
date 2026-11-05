@@ -42,6 +42,10 @@ public class VentanaPrincipal extends JFrame {
     JSlider velocidad;
     File ultimoDir = new File(".");
     final BaseDatos bd = new BaseDatos("datos");
+    int pisoActual;            // 0 = piso 1
+    JPanel panelPisos;
+    int pisosMostrados = -1;
+    boolean selectorEnEdicion;
 
     Edificio vista() {
         return motor != null ? motor.mapa : mapa;
@@ -57,6 +61,12 @@ public class VentanaPrincipal extends JFrame {
         setLayout(new BorderLayout(6, 6));
         add(crearPanelIzquierdo(), BorderLayout.WEST);
         add(new JScrollPane(grid), BorderLayout.CENTER);
+        panelPisos = new JPanel();
+        panelPisos.setLayout(new BoxLayout(panelPisos, BoxLayout.Y_AXIS));
+        panelPisos.setBorder(new CompoundBorder(new TitledBorder("Pisos"), new EmptyBorder(2, 4, 4, 4)));
+        JPanel este = new JPanel(new BorderLayout());
+        este.add(panelPisos, BorderLayout.NORTH);
+        add(este, BorderLayout.EAST);
 
         logArea = new JTextArea(6, 40);
         logArea.setEditable(false);
@@ -76,7 +86,7 @@ public class VentanaPrincipal extends JFrame {
     }
 
     Edificio crearDemo() {
-        Edificio m = new Edificio(12, 20);
+        Edificio m = new Edificio(12, 20, 3);
         m.rect(TipoNodo.PASILLO, 5, 1, 6, 18);
         m.rect(TipoNodo.HABITACION, 1, 1, 3, 5);
         m.rect(TipoNodo.HABITACION, 1, 7, 3, 11);
@@ -97,6 +107,21 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.INCAPACITADO, 9, 9);
         m.agregar(TipoPersona.RESCATE, EstadoSalud.SANO, 2, 15);
+        // pisos 2 y 3: mismo plano, escalera en la misma posicion y sin salidas (se evacua por el piso 1)
+        for (int piso = 1; piso < 3; piso++) {
+            int b = piso * 12;
+            m.rect(TipoNodo.PASILLO, b + 5, 1, b + 6, 18);
+            for (int[] r : new int[][]{{1, 1, 3, 5}, {1, 7, 3, 11}, {1, 13, 3, 17}, {8, 1, 10, 5}, {8, 7, 10, 11}, {8, 13, 10, 17}})
+                m.rect(TipoNodo.HABITACION, b + r[0], r[1], b + r[2], r[3]);
+            for (int c : new int[]{3, 9, 15}) {
+                m.n[b + 4][c].tipo = TipoNodo.PASILLO;
+                m.n[b + 7][c].tipo = TipoNodo.PASILLO;
+            }
+            m.n[b + 5][10].tipo = TipoNodo.ESCALERA;
+        }
+        m.agregar(TipoPersona.ADULTO, EstadoSalud.SANO, 12 + 2, 3);
+        m.agregar(TipoPersona.NINO, EstadoSalud.SANO, 12 + 9, 15);
+        m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 24 + 2, 9);
         return m;
     }
 
@@ -123,7 +148,7 @@ public class VentanaPrincipal extends JFrame {
                 tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar"),
                 tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Pinta nodos de tipo habitacion"),
                 tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pinta nodos de tipo pasillo"),
-                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Pinta nodos de tipo escalera (costo 3)"),
+                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Pinta escaleras. Conectan con la escalera de la misma posicion en el piso de arriba y abajo"),
                 tool("Salida", Herramienta.SALIDA, herramientas, false, "Pinta nodos de tipo salida"),
                 tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Elimina el nodo y las personas sobre el")));
 
@@ -152,7 +177,6 @@ public class VentanaPrincipal extends JFrame {
                 chkTiempoReal, velocidad,
                 boton("Detener simulacion", "Pausa la animacion (conserva resultados)", e -> timer.stop()),
                 boton("Generar evento aleatorio", "Colapsa un pasillo al azar", e -> eventoManual()),
-                boton("Recalcular ruta", "Recalcula las rutas de todas las personas", e -> recalcularManual()),
                 boton("Volver a edicion", "Descarta la simulacion y vuelve al escenario editable", e -> volverAEdicion()),
                 boton("Comparar Dijkstra vs A*", "Compara nodos explorados y tiempo de calculo", e -> compararAlgoritmos())));
 
@@ -232,12 +256,54 @@ public class VentanaPrincipal extends JFrame {
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
+    /** Selector de pisos (a la derecha): un boton por piso y, en modo edicion, un boton para agregar piso. */
+    void reconstruirSelector() {
+        Edificio m = vista();
+        if (pisoActual >= m.pisos) pisoActual = m.pisos - 1;
+        panelPisos.removeAll();
+        ButtonGroup grupo = new ButtonGroup();
+        for (int k = m.pisos - 1; k >= 0; k--) {   // el piso mas alto arriba, como en un edificio
+            final int piso = k;
+            JToggleButton b = new JToggleButton("Piso " + (k + 1), k == pisoActual);
+            b.setAlignmentX(Component.CENTER_ALIGNMENT);
+            b.setMaximumSize(new Dimension(Integer.MAX_VALUE, b.getPreferredSize().height));
+            b.addActionListener(e -> {
+                pisoActual = piso;
+                grid.repaint();
+                actualizarEstado();
+            });
+            grupo.add(b);
+            panelPisos.add(b);
+        }
+        selectorEnEdicion = motor == null;
+        JButton mas = new JButton("+ Agregar piso");
+        mas.setEnabled(selectorEnEdicion);
+        mas.setToolTipText("Agrega un piso vacio arriba del ultimo (solo en modo edicion)");
+        mas.setMaximumSize(new Dimension(Integer.MAX_VALUE, mas.getPreferredSize().height));
+        mas.addActionListener(e -> agregarPiso());
+        panelPisos.add(Box.createVerticalStrut(6));
+        panelPisos.add(mas);
+        pisosMostrados = m.pisos;
+        panelPisos.revalidate();
+        panelPisos.repaint();
+    }
+
+    void agregarPiso() {
+        if (motor != null) return;
+        mapa = mapa.copiaConPisos(mapa.pisos + 1);
+        pisoActual = mapa.pisos - 1;
+        grid.repaint();
+        actualizarEstado();
+        log("Piso " + mapa.pisos + " agregado. Pinte sus nodos; las escaleras se conectan con las del piso de abajo.");
+    }
+
     void actualizarEstado() {
         Edificio m = vista();
+        if (m.pisos != pisosMostrados || selectorEnEdicion != (motor == null)) reconstruirSelector();
         if (motor == null) {
-            estado.setText("Modo edicion  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
+            estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
         } else {
-            estado.setText("Simulando  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
+            estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
                     + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.terminado ? "  |  TERMINADA" : ""));
         }
     }
@@ -286,12 +352,6 @@ public class VentanaPrincipal extends JFrame {
     void eventoManual() {
         if (!requiereMotor()) return;
         motor.generarEvento();
-        grid.repaint();
-    }
-
-    void recalcularManual() {
-        if (!requiereMotor()) return;
-        motor.recalcularTodas();
         grid.repaint();
     }
 

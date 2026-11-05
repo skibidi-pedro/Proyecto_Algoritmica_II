@@ -32,7 +32,8 @@ public final class ValidadorPlano {
             if (t == null) err.add(ref + ": tipo invalido (use HABITACION, PASILLO, ESCALERA o SALIDA).");
             else if (t == TipoNodo.SALIDA) haySalida = true;
             if (n.x == null || n.y == null || n.x < 0 || n.y < 0) err.add(ref + ": coordenadas (x, y) invalidas; deben ser enteros >= 0.");
-            else if (celdas.put(n.x + "," + n.y, n.id) != null) err.add(ref + ": la celda (" + n.x + "," + n.y + ") ya esta ocupada por otro nodo.");
+            else if (celdas.put(n.piso + ":" + n.x + "," + n.y, n.id) != null) err.add(ref + ": la celda (piso " + n.piso + ", " + n.x + "," + n.y + ") ya esta ocupada por otro nodo.");
+            if (n.piso == null || n.piso < 1 || (d.pisos != null && n.piso > d.pisos)) err.add(ref + ": piso invalido (debe ser un entero entre 1 y la cantidad de pisos).");
         }
         for (PlanoDatos.NodoDef n : d.nodos)
             if (n.x != null && n.y != null && ((d.columnas != null && n.x >= d.columnas) || (d.filas != null && n.y >= d.filas)))

@@ -22,17 +22,20 @@ public final class ConstructorEdificio {
             for (String e : err) sb.append("\n - ").append(e);
             throw new IllegalArgumentException(sb.toString());
         }
-        int maxX = 0, maxY = 0;
+        int maxX = 0, maxY = 0, maxP = 1;
         for (PlanoDatos.NodoDef n : d.nodos) {
             maxX = Math.max(maxX, n.x);
             maxY = Math.max(maxY, n.y);
+            maxP = Math.max(maxP, n.piso);
         }
-        Edificio e = new Edificio(Math.max(maxY + 1, d.filas == null ? 0 : d.filas), Math.max(maxX + 1, d.columnas == null ? 0 : d.columnas));
+        int filasPiso = Math.max(maxY + 1, d.filas == null ? 0 : d.filas);
+        Edificio e = new Edificio(filasPiso, Math.max(maxX + 1, d.columnas == null ? 0 : d.columnas), Math.max(maxP, d.pisos == null ? 1 : d.pisos));
         Map<String, int[]> pos = new HashMap<>();
         for (PlanoDatos.NodoDef n : d.nodos) {
-            e.crearNodo(ValidadorPlano.tipo(n.tipo), n.y, n.x, n.id);
-            e.n[n.y][n.x].bloqueado = n.bloqueado;
-            pos.put(n.id, new int[]{n.y, n.x});
+            int fila = (n.piso - 1) * filasPiso + n.y;
+            e.crearNodo(ValidadorPlano.tipo(n.tipo), fila, n.x, n.id);
+            e.n[fila][n.x].bloqueado = n.bloqueado;
+            pos.put(n.id, new int[]{fila, n.x});
         }
         e.conexionesExplicitas = !d.cuadricula;
         for (PlanoDatos.ConexionDef c : d.conexiones) {

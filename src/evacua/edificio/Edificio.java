@@ -7,9 +7,14 @@ import evacua.personas.TipoPersona;
 import java.util.ArrayList;
 import java.util.List;
 
-/** El edificio: cuadricula de nodos y las personas registradas en el. */
+/**
+ * El edificio: cuadricula de nodos y las personas registradas en el. Tiene uno o mas pisos
+ * apilados en la misma cuadricula: el piso k (desde 0) ocupa las filas [k*filasPorPiso, (k+1)*filasPorPiso).
+ * Las escaleras en la misma (fila, col) de pisos consecutivos conectan los pisos.
+ */
 public class Edificio {
     public final int filas, cols;
+    public final int filasPorPiso, pisos;
     public final Nodo[][] n;
     public final List<Persona> personas = new ArrayList<>();
     public int sigId = 1;
@@ -21,11 +26,23 @@ public class Edificio {
     public final java.util.Map<String, Integer> idANodo = new java.util.LinkedHashMap<>();
 
     public Edificio(int filas, int cols) {
-        this.filas = filas;
+        this(filas, cols, 1);
+    }
+
+    public Edificio(int filasPorPiso, int cols, int pisos) {
+        if (pisos < 1) throw new IllegalArgumentException("El edificio necesita al menos un piso.");
+        this.filasPorPiso = filasPorPiso;
+        this.pisos = pisos;
+        this.filas = filasPorPiso * pisos;
         this.cols = cols;
         n = new Nodo[filas][cols];
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++) n[i][j] = new Nodo();
+    }
+
+    /** Piso (desde 0) al que pertenece una fila. */
+    public int piso(int f) {
+        return f / filasPorPiso;
     }
 
     public boolean dentro(int f, int c) {
@@ -121,7 +138,13 @@ public class Edificio {
 
     /** Copia profunda (nodos, bloqueos, conexiones y personas) para simular sin alterar el original. */
     public Edificio copia() {
-        Edificio e = new Edificio(filas, cols);
+        return copiaConPisos(pisos);
+    }
+
+    /** Copia profunda con otra cantidad de pisos (los pisos nuevos quedan vacios al final). */
+    public Edificio copiaConPisos(int nuevosPisos) {
+        if (nuevosPisos < pisos) throw new IllegalArgumentException("No se pueden quitar pisos con esta operacion.");
+        Edificio e = new Edificio(filasPorPiso, cols, nuevosPisos);
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++) {
                 e.n[i][j].tipo = n[i][j].tipo;

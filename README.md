@@ -148,7 +148,7 @@ Proyecto_Algoritmica_II/
 │           ├── ControlCapacidad.java         (Congestionado, RN-08)
 │           └── ParametrosSimulacion.java
 ├── recursos/planos/                          planos de prueba (.txt, .json, .xml, uno invalido)
-├── test/evacua/                              PruebasEstructuras, PruebasPlanos, PruebasPersistencia
+├── test/evacua/                              PruebasEstructuras, PruebasPlanos, PruebasPersistencia, PruebasPisos
 └── docs/                                     informe, diagrama de casos de uso
 ```
 
@@ -218,25 +218,31 @@ Qué hay hoy (por integrante):
 - **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas; importación de planos `.json`, `.xml` y `.txt` con validación que informa todos los errores.
 - **Integrante 3:** jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
+Pisos: el edificio puede tener varios pisos. El edificio original es el **piso 1** y el selector de la derecha (Piso 1, 2, 3...) cambia el piso que se dibuja; "+ Agregar piso" agrega uno vacío en modo edición. Las **escaleras** (`E`) en la misma fila y columna de pisos consecutivos los conectan (costo 3). Las personas de pisos altos bajan por ellas hasta una salida. Mientras corre la simulación, cada vez que se bloquea o desbloquea una zona se recalculan solas las rutas de todos (por eso no hay botón de recalcular).
+
 Limitaciones conocidas:
-- La interfaz dibuja el edificio como cuadrícula: un plano importado se ubica por las coordenadas `x` (columna) e `y` (fila), y las conexiones no se dibujan como líneas.
+- La interfaz dibuja un piso a la vez como cuadrícula: un plano importado se ubica por las coordenadas `x` (columna) e `y` (fila), y las conexiones no se dibujan como líneas.
 - El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. La capacidad de las conexiones se valida y se guarda, pero la congestión se controla por nodo.
 - La "base de datos" es un almacén embebido en archivos (sin servidor ni SQL). Si el curso exige SQL, `BaseDatos` es el único punto a reemplazar por JDBC.
 - La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) o importando un plano.
 
-Formato `.txt` (cuadrícula):
+Formato `.txt` (cuadrícula, ver `recursos/planos/edificio_3pisos.txt`):
 ```
-HHHPPSS      <- filas de la cuadrícula (todas con el mismo largo, al menos una S)
+#PISO 1      <- (opcional con un solo piso) cada piso es un bloque de filas del mismo tamaño
+HHHPPSS      <- filas del piso (todas con el mismo largo; al menos una S en todo el edificio)
 H..P.E.      <- '.' = sin nodo, minúscula = bloqueado
-#PERSONAS    <- (opcional) luego líneas: fila columna TIPO SALUD
-0 1 ADULTO SANO
+#PISO 2
+H..P.E.
+#PERSONAS    <- (opcional) luego líneas: fila columna TIPO SALUD  (un piso)
+1 0 1 ADULTO SANO   <- o: piso fila columna TIPO SALUD (varios pisos; el piso empieza en 1)
 ```
 
 Formato `.json` (ver `recursos/planos/edificio_simple.json`; el `.xml` equivale):
 ```
 { "modo": "grafo",            // "cuadricula" = vecinos de la cuadrícula; "grafo" = solo las conexiones listadas
   "filas": 3, "columnas": 6,  // opcional
-  "nodos": [ {"id": "H1", "tipo": "HABITACION", "x": 1, "y": 1, "bloqueado": false} ],
+  "pisos": 1,                  // opcional
+  "nodos": [ {"id": "H1", "tipo": "HABITACION", "piso": 1, "x": 1, "y": 1, "bloqueado": false} ],  // piso opcional (1 por defecto)
   "conexiones": [ {"origen": "H1", "destino": "P1", "tiempo": 1, "capacidad": 3} ],
   "personas": [ {"nodo": "H1", "tipo": "ADULTO", "salud": "SANO"} ] }
 ```
@@ -248,6 +254,7 @@ javac -d out $(find src test -name "*.java")
 java -cp out evacua.PruebasEstructuras
 java -cp out evacua.PruebasPlanos
 java -cp out evacua.PruebasPersistencia
+java -cp out evacua.PruebasPisos
 java -cp out evacua.Main
 ```
 En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar `evacua.Main`.

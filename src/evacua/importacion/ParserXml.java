@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Lee un plano .xml:
- * &lt;edificio&gt;&lt;nodos&gt;&lt;nodo id="A" tipo="HABITACION" x="1" y="2" bloqueado="false"/&gt;&lt;/nodos&gt;
+ * &lt;edificio&gt;&lt;nodos&gt;&lt;nodo id="A" tipo="HABITACION" piso="1" x="1" y="2" bloqueado="false"/&gt;&lt;/nodos&gt;
  * &lt;conexiones&gt;&lt;conexion origen="A" destino="B" tiempo="2" capacidad="3"/&gt;&lt;/conexiones&gt;
  * &lt;personas&gt;&lt;persona nodo="A" tipo="ADULTO" salud="SANO"/&gt;&lt;/personas&gt;&lt;/edificio&gt;
  */
@@ -30,6 +30,7 @@ public final class ParserXml {
         d.cuadricula = "cuadricula".equals(doc.getDocumentElement().getAttribute("modo"));
         d.filas = entero(attr(doc.getDocumentElement(), "filas"));
         d.columnas = entero(attr(doc.getDocumentElement(), "columnas"));
+        d.pisos = entero(attr(doc.getDocumentElement(), "pisos"));
         NodeList nodos = doc.getElementsByTagName("nodo");
         for (int i = 0; i < nodos.getLength(); i++) {
             Element e = (Element) nodos.item(i);
@@ -38,6 +39,7 @@ public final class ParserXml {
             n.tipo = attr(e, "tipo");
             n.x = entero(attr(e, "x"));
             n.y = entero(attr(e, "y"));
+            n.piso = attr(e, "piso") == null ? Integer.valueOf(1) : entero(attr(e, "piso"));
             n.bloqueado = "true".equalsIgnoreCase(attr(e, "bloqueado"));
             d.nodos.add(n);
         }

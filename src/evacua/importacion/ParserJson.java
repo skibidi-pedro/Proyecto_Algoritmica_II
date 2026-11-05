@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Lee un plano .json:
- * {"nodos":[{"id":"A","tipo":"HABITACION","x":1,"y":2,"bloqueado":false}],
+ * {"nodos":[{"id":"A","tipo":"HABITACION","piso":1,"x":1,"y":2,"bloqueado":false}],
  *  "conexiones":[{"origen":"A","destino":"B","tiempo":2,"capacidad":3}],
  *  "personas":[{"nodo":"A","tipo":"ADULTO","salud":"SANO"}]}
  */
@@ -22,6 +22,7 @@ public final class ParserJson {
         d.cuadricula = "cuadricula".equals(m.get("modo"));
         d.filas = entero(m.get("filas"));
         d.columnas = entero(m.get("columnas"));
+        d.pisos = entero(m.get("pisos"));
         for (Object o : lista(m, "nodos")) {
             Map<String, Object> n = obj(o, "nodos");
             PlanoDatos.NodoDef nd = new PlanoDatos.NodoDef();
@@ -29,6 +30,7 @@ public final class ParserJson {
             nd.tipo = texto(n.get("tipo"));
             nd.x = entero(n.get("x"));
             nd.y = entero(n.get("y"));
+            nd.piso = n.containsKey("piso") ? entero(n.get("piso")) : Integer.valueOf(1);
             nd.bloqueado = Boolean.TRUE.equals(n.get("bloqueado"));
             d.nodos.add(nd);
         }

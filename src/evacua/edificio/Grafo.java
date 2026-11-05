@@ -1,5 +1,7 @@
 package evacua.edificio;
 
+import evacua.rutas.Heuristica;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,11 +50,19 @@ public class Grafo {
                     if (e.n[f][c].tipo == TipoNodo.VACIO) continue;
                     for (int[] d : DIRS) {
                         int nf = f + d[0], nc = c + d[1];
-                        if (!e.dentro(nf, nc) || e.n[nf][nc].tipo == TipoNodo.VACIO) continue;
+                        if (!e.dentro(nf, nc) || e.n[nf][nc].tipo == TipoNodo.VACIO || e.piso(nf) != e.piso(f)) continue;
                         double t = e.n[nf][nc].tipo == TipoNodo.ESCALERA ? 3 : 1;
                         ady[f * cols + c].add(new Arista(nf * cols + nc, t, CAPACIDAD_DEFECTO, null));
                     }
                 }
+            // escaleras: unen la misma (fila, col) de pisos consecutivos
+            for (int f = 0; f + e.filasPorPiso < e.filas; f++)
+                for (int c = 0; c < e.cols; c++)
+                    if (e.n[f][c].tipo == TipoNodo.ESCALERA && e.n[f + e.filasPorPiso][c].tipo == TipoNodo.ESCALERA) {
+                        int a = f * cols + c, b = (f + e.filasPorPiso) * cols + c;
+                        ady[a].add(new Arista(b, 3, CAPACIDAD_DEFECTO, null));
+                        ady[b].add(new Arista(a, 3, CAPACIDAD_DEFECTO, null));
+                    }
         }
         for (Conexion k : e.conexiones) {
             ady[k.origen].removeIf(a -> a.destino == k.destino);
@@ -63,7 +73,7 @@ public class Grafo {
         double fac = Double.MAX_VALUE;
         for (int a = 0; a < ady.length; a++)
             for (Arista ar : ady[a]) {
-                int dist = Math.abs(a / cols - ar.destino / cols) + Math.abs(a % cols - ar.destino % cols);
+                int dist = Heuristica.distancia(e, a / cols, a % cols, ar.destino / cols, ar.destino % cols);
                 if (dist > 0) fac = Math.min(fac, ar.tiempo / dist);
             }
         factorTiempo = fac == Double.MAX_VALUE ? 1 : fac;

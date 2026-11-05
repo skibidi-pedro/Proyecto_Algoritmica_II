@@ -18,20 +18,25 @@ public class GestorEscenarios {
 
     public static String aTexto(Edificio e, boolean conPersonas) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < e.filas; i++) {
-            for (int j = 0; j < e.cols; j++) {
-                Nodo nd = e.n[i][j];
-                char ch = nd.tipo.letra;
-                if (nd.tipo != TipoNodo.VACIO && nd.bloqueado) ch = Character.toLowerCase(ch);
-                sb.append(ch);
+        for (int p = 0; p < e.pisos; p++) {
+            if (e.pisos > 1) sb.append("#PISO ").append(p + 1).append('\n');
+            for (int i = p * e.filasPorPiso; i < (p + 1) * e.filasPorPiso; i++) {
+                for (int j = 0; j < e.cols; j++) {
+                    Nodo nd = e.n[i][j];
+                    char ch = nd.tipo.letra;
+                    if (nd.tipo != TipoNodo.VACIO && nd.bloqueado) ch = Character.toLowerCase(ch);
+                    sb.append(ch);
+                }
+                sb.append('\n');
             }
-            sb.append('\n');
         }
         if (conPersonas && !e.personas.isEmpty()) {
             sb.append("#PERSONAS\n");
-            for (Persona p : e.personas)
-                sb.append(p.f).append(' ').append(p.c).append(' ')
-                        .append(p.tipo.name()).append(' ').append(p.salud.name()).append('\n');
+            for (Persona p : e.personas) {
+                if (e.pisos > 1) sb.append(e.piso(p.f) + 1).append(' ').append(p.f % e.filasPorPiso);
+                else sb.append(p.f);
+                sb.append(' ').append(p.c).append(' ').append(p.tipo.name()).append(' ').append(p.salud.name()).append('\n');
+            }
         }
         return sb.toString();
     }
@@ -65,14 +70,14 @@ public class GestorEscenarios {
 
     /** Serializa el escenario completo (nodos, conexiones, bloqueos y personas) a JSON; ParserPlano lo vuelve a leer. */
     public static String aJson(Edificio e) {
-        StringBuilder sb = new StringBuilder("{\n  \"modo\": \"" + (e.conexionesExplicitas ? "grafo" : "cuadricula") + "\",\n  \"filas\": " + e.filas + ",\n  \"columnas\": " + e.cols + ",\n  \"nodos\": [");
+        StringBuilder sb = new StringBuilder("{\n  \"modo\": \"" + (e.conexionesExplicitas ? "grafo" : "cuadricula") + "\",\n  \"pisos\": " + e.pisos + ",\n  \"filas\": " + e.filasPorPiso + ",\n  \"columnas\": " + e.cols + ",\n  \"nodos\": [");
         boolean primero = true;
         for (int i = 0; i < e.filas; i++)
             for (int j = 0; j < e.cols; j++) {
                 Nodo nd = e.n[i][j];
                 if (nd.tipo == TipoNodo.VACIO) continue;
                 sb.append(primero ? "\n" : ",\n").append("    {\"id\": \"").append(esc(e.idDe(i, j))).append("\", \"tipo\": \"")
-                        .append(nd.tipo.name()).append("\", \"x\": ").append(j).append(", \"y\": ").append(i)
+                        .append(nd.tipo.name()).append("\", \"piso\": ").append(e.piso(i) + 1).append(", \"x\": ").append(j).append(", \"y\": ").append(i % e.filasPorPiso)
                         .append(", \"bloqueado\": ").append(nd.bloqueado).append('}');
                 primero = false;
             }

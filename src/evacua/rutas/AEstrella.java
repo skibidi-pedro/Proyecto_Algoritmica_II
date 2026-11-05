@@ -12,6 +12,6 @@ public class AEstrella extends AlgoritmoRuta {
 
     @Override
     protected double h(Grafo g, int f, int c, List<int[]> metas) {
-        return Heuristica.aTiempo(f, c, metas, g.factorTiempo);
+        return Heuristica.aTiempo(g.edificio, f, c, metas, g.factorTiempo);
     }
 }
