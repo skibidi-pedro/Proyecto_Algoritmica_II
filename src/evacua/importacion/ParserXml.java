@@ -27,6 +27,9 @@ public final class ParserXml {
             throw new IllegalArgumentException("XML invalido: " + ex.getMessage());
         }
         PlanoDatos d = new PlanoDatos();
+        d.cuadricula = "cuadricula".equals(doc.getDocumentElement().getAttribute("modo"));
+        d.filas = entero(attr(doc.getDocumentElement(), "filas"));
+        d.columnas = entero(attr(doc.getDocumentElement(), "columnas"));
         NodeList nodos = doc.getElementsByTagName("nodo");
         for (int i = 0; i < nodos.getLength(); i++) {
             Element e = (Element) nodos.item(i);
@@ -50,6 +53,7 @@ public final class ParserXml {
                 c.tiempo = null;
             }
             c.capacidad = entero(attr(e, "capacidad"));
+            c.bloqueada = "true".equalsIgnoreCase(attr(e, "bloqueada"));
             d.conexiones.add(c);
         }
         NodeList ps = doc.getElementsByTagName("persona");

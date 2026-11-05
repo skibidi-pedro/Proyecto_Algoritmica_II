@@ -101,41 +101,58 @@ Proyecto_Algoritmica_II/
 │   └── evacua/
 │       ├── Main.java                         [Integrante 1] punto de entrada
 │       │
-│       ├── estructuras/                      [Integrante 1] (por crear)
-│       │   └── ListaSimple, ListaDoble, Pila, Cola, ColaPrioridad (heap)
+│       ├── estructuras/                      [Integrante 1]
+│       │   ├── ListaSimple, ListaDoble, Pila, Cola
+│       │   └── ColaPrioridad.java            (heap)
 │       ├── persistencia/                     [Integrante 1]
-│       │   └── GestorEscenarios.java         (guardar / cargar escenarios, RN-10)
+│       │   ├── BaseDatos.java                (base embebida: escenarios .json + resultados.csv)
+│       │   └── GestorEscenarios.java         (validar RN-10, guardar/cargar .txt/.json)
 │       ├── reportes/                         [Integrante 1]
-│       │   └── ReporteSimulacion.java        (reporte general e individual, RN-14)
+│       │   ├── ReporteSimulacion.java        (reporte general e individual)
+│       │   ├── ComparadorEscenarios.java     (compara escenarios, registra resultados)
+│       │   └── ExportadorIndividual.java     (un archivo por persona, RN-14)
 │       │
 │       ├── edificio/                         [Integrante 2]
-│       │   ├── Edificio.java                 (cuadricula de nodos + personas)
-│       │   ├── Nodo.java
-│       │   └── TipoNodo.java                 (Vacio, Habitacion, Pasillo, Escalera, Salida)
+│       │   ├── Edificio.java                 (nodos, CRUD, conexiones, bloqueos, copia)
+│       │   ├── Nodo.java, TipoNodo.java, EstadoNodo.java
+│       │   ├── Conexion.java                 (tiempo > 0 y capacidad, RN-03)
+│       │   └── Grafo.java                    (aristas ponderadas con capacidad)
 │       ├── rutas/                            [Integrante 2]
-│       │   ├── BuscadorRutas.java            (Dijkstra y A*)
-│       │   ├── Heuristica.java               (distancia Manhattan a la salida)
+│       │   ├── AlgoritmoRuta.java            (busqueda con heap, excluye bloqueos)
+│       │   ├── Dijkstra.java, AEstrella.java
+│       │   ├── Heuristica.java               (Manhattan convertida a tiempo, RN-16)
+│       │   ├── RecalculadorRutas.java        (RN-07)
+│       │   ├── BuscadorRutas.java            (fachada)
 │       │   └── ResultadoRuta.java            (ruta, nodos explorados, tiempo)
 │       ├── importacion/                      [Integrante 2]
-│       │   └── ParserPlano.java              (parser y validacion del plano, RN-15)
+│       │   ├── ParserPlano.java              (elige parser por extension; .txt)
+│       │   ├── ParserJson.java, JsonMini.java, ParserXml.java
+│       │   ├── PlanoDatos.java               (datos leidos)
+│       │   ├── ValidadorPlano.java           (todos los errores, RN-15)
+│       │   └── ConstructorEdificio.java      (construye el grafo si es valido)
 │       ├── vista/                            [Integrante 2]
 │       │   ├── VentanaPrincipal.java         (Swing: botones, estado, registro)
-│       │   ├── PanelEdificio.java            (dibuja edificio, personas y mapa de calor)
+│       │   ├── PanelEdificio.java            (edificio, personas, rutas y mapa de calor)
 │       │   └── Herramienta.java
 │       │
 │       ├── personas/                         [Integrante 3]
-│       │   ├── Persona.java                  (incluye bitacora `hist`, estres, recalculos)
-│       │   ├── TipoPersona.java              (Adulto, Nino, Movilidad reducida, Rescate)
-│       │   └── EstadoSalud.java
+│       │   ├── Persona.java                  (clase base)
+│       │   ├── Adulto, Nino, MovilidadReducida, PersonalRescate
+│       │   ├── Bitacora.java, RegistroBitacora.java   (lista doble, RN-11)
+│       │   ├── NivelEstres.java              (0 a 100, RN-12)
+│       │   ├── HistorialEventos.java         (RN-13)
+│       │   └── TipoPersona.java, EstadoSalud.java
 │       └── simulacion/                       [Integrante 3]
-│           ├── MotorSimulacion.java          (paso a paso, eventos, recalculo, congestion)
-│           └── ParametrosSimulacion.java     (probabilidad, semilla, limite, umbral, capacidad)
-├── recursos/planos/                          [Integrante 2] planos de prueba (por crear)
-├── test/                                     cada integrante prueba sus paquetes (por crear)
+│           ├── MotorSimulacion.java          (paso a paso)
+│           ├── EventoAleatorio.java          (colapso de pasillos, RN-18)
+│           ├── ControlCapacidad.java         (Congestionado, RN-08)
+│           └── ParametrosSimulacion.java
+├── recursos/planos/                          planos de prueba (.txt, .json, .xml, uno invalido)
+├── test/evacua/                              PruebasEstructuras, PruebasPlanos, PruebasPersistencia
 └── docs/                                     informe, diagrama de casos de uso
 ```
 
-> Los archivos de `src/` ya existen: son el prototipo dividido por paquetes, con el mismo comportamiento. Lo que falta del diseño final (grafo explicito con conexiones, estructuras propias, base de datos, parser `.json`/`.xml`, `RecalculadorRutas`, `Dijkstra`/`AEstrella` separados, clases derivadas de `Persona`, `Bitacora`, `MapaCalor`) se implementa dentro de estos mismos paquetes.
+> Todos los archivos de `src/` existen y compilan. Cada integrante sigue siendo dueño de sus paquetes.
 
 ### 6.2 Resumen por integrante
 
@@ -149,15 +166,13 @@ Proyecto_Algoritmica_II/
 
 | Quien provee | Clase / operación | Quien la usa |
 |---|---|---|
-| Integrante 1 | `estructuras.*` (listas, pila, cola, heap), cuando existan | Todos (grafo, bitácora, búsqueda de rutas) |
-| Integrante 2 | `BuscadorRutas.buscar(...)`, `Edificio` | `simulacion.MotorSimulacion` (Integrante 3): asignar y recalcular rutas |
-| Integrante 3 | `Persona` (bitácora `hist`, estrés, recálculos) | `reportes.ReporteSimulacion` (Integrante 1): reporte individual |
-| Integrante 3 | `MotorSimulacion` (tiempos, evacuadas, cuellos de botella) | `reportes.ReporteSimulacion` (Integrante 1) y `vista.*` (Integrante 2) |
-| Integrante 3 | `MotorSimulacion.generarEvento()` (bloquea un pasillo) | Recálculo de rutas del Integrante 2 |
-| Integrante 1 | `GestorEscenarios` | `vista.VentanaPrincipal` (Integrante 2) y `Main` |
-| Integrante 2 | `ParserPlano` | `GestorEscenarios` (Integrante 1) |
-
-> Estos son los puntos de contacto actuales. Si se agregan o renombran clases (por ejemplo `RecalculadorRutas` o `Bitacora`), actualiza esta sección.
+| Integrante 1 | `estructuras.*` (`ColaPrioridad`, `ListaDoble`, ...) | `rutas.AlgoritmoRuta` (Integrante 2) y `personas.Bitacora` (Integrante 3) |
+| Integrante 2 | `RecalculadorRutas`, `Dijkstra`, `AEstrella`, `Edificio` | `simulacion.MotorSimulacion` (Integrante 3) |
+| Integrante 3 | `Persona` (`bitacora`, `historial`, `estres`) | `reportes.ReporteSimulacion` y `ExportadorIndividual` (Integrante 1) |
+| Integrante 3 | `MotorSimulacion` (tiempos, evacuadas, cuellos de botella) | `reportes.*` (Integrante 1) y `vista.*` (Integrante 2) |
+| Integrante 3 | `EventoAleatorio` (bloquea un pasillo) | `MotorSimulacion` y su recálculo (Integrante 2) |
+| Integrante 2 | `ParserPlano.leer(...)` | `persistencia.GestorEscenarios` y `BaseDatos` (Integrante 1) |
+| Integrante 1 | `BaseDatos`, `GestorEscenarios` | `vista.VentanaPrincipal` (Integrante 2) y `Main` |
 
 ### 6.4 Tareas por integrante
 
@@ -196,29 +211,43 @@ Proyecto_Algoritmica_II/
 
 ## 7. Estado actual del repositorio
 
-El repo contiene el **prototipo** del simulador, ya dividido por paquetes en `src/evacua/` (ver 6.1), y el prototipo original de un solo archivo en `prototipo/EvacuaPrototipo.java` como referencia. Es Java Swing, sin dependencias externas.
+Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. El prototipo original de un solo archivo queda en `prototipo/EvacuaPrototipo.java` como referencia. Es Java Swing, sin dependencias externas.
 
-Qué ofrece hoy:
-- Dibuja el edificio como una **cuadrícula**: cada celda es un nodo (`H` habitación, `P` pasillo, `E` escalera, `S` salida, `.` vacío; minúscula = bloqueado).
-- Tipos de persona con velocidad propia (Adulto, Niño, Movilidad reducida, Rescate) y estados de salud.
-- Motor de simulación con eventos aleatorios (probabilidad y semilla), estrés, umbral, tiempo límite y capacidad por nodo.
-- Búsqueda de rutas con **Dijkstra y A\*** conmutables, y comparación de ambos.
-- Carga/guardado de escenarios y plano en `.txt`, comparación de escenarios, reporte general, exportación individual y mapa de calor.
+Qué hay hoy (por integrante):
+- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas y la lista doble la bitácora; `Pila` y `Cola` no se usan aún en la simulación; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
+- **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas; importación de planos `.json`, `.xml` y `.txt` con validación que informa todos los errores.
+- **Integrante 3:** jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
-Formato `.txt` del plano/escenario:
+Limitaciones conocidas:
+- La interfaz dibuja el edificio como cuadrícula: un plano importado se ubica por las coordenadas `x` (columna) e `y` (fila), y las conexiones no se dibujan como líneas.
+- El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. La capacidad de las conexiones se valida y se guarda, pero la congestión se controla por nodo.
+- La "base de datos" es un almacén embebido en archivos (sin servidor ni SQL). Si el curso exige SQL, `BaseDatos` es el único punto a reemplazar por JDBC.
+- La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) o importando un plano.
+
+Formato `.txt` (cuadrícula):
 ```
 HHHPPSS      <- filas de la cuadrícula (todas con el mismo largo, al menos una S)
 H..P.E.      <- '.' = sin nodo, minúscula = bloqueado
 #PERSONAS    <- (opcional) luego líneas: fila columna TIPO SALUD
 0 1 ADULTO SANO
-0 2 RESCATE SANO
 ```
 
-**Importante:** el diseño final descrito arriba usa un **grafo explícito** (nodos con coordenadas y conexiones con peso y capacidad), una **base de datos**, un parser `.json`/`.txt`/`.xml` y estructuras de datos propias. El prototipo aún no los tiene: es el punto de partida para construirlos dentro de cada paquete.
-
-Compilar y ejecutar (JDK 11 o superior):
+Formato `.json` (ver `recursos/planos/edificio_simple.json`; el `.xml` equivale):
 ```
-javac -d out $(find src -name "*.java")
+{ "modo": "grafo",            // "cuadricula" = vecinos de la cuadrícula; "grafo" = solo las conexiones listadas
+  "filas": 3, "columnas": 6,  // opcional
+  "nodos": [ {"id": "H1", "tipo": "HABITACION", "x": 1, "y": 1, "bloqueado": false} ],
+  "conexiones": [ {"origen": "H1", "destino": "P1", "tiempo": 1, "capacidad": 3} ],
+  "personas": [ {"nodo": "H1", "tipo": "ADULTO", "salud": "SANO"} ] }
+```
+Tipos de nodo: `HABITACION`, `PASILLO`, `ESCALERA`, `SALIDA`. Tipos de persona: `ADULTO`, `NINO`, `MOVILIDAD`, `RESCATE`. Salud: `SANO`, `HERIDO`, `ENFERMO`, `INCAPACITADO`. Un plano inválido se rechaza listando todos los errores y el edificio actual no cambia (RN-15).
+
+Compilar, probar y ejecutar (JDK 11 o superior), desde la raíz del repo:
+```
+javac -d out $(find src test -name "*.java")
+java -cp out evacua.PruebasEstructuras
+java -cp out evacua.PruebasPlanos
+java -cp out evacua.PruebasPersistencia
 java -cp out evacua.Main
 ```
 En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar `evacua.Main`.

@@ -15,12 +15,17 @@ public class PlanoDatos {
         public String origen, destino;
         public Double tiempo;
         public Integer capacidad;
+        public boolean bloqueada;
     }
 
     public static class PersonaDef {
         public String nodo, tipo = "ADULTO", salud = "SANO";
     }
 
+    /** Si es true, el grafo usa la adyacencia de la cuadricula y las conexiones solo la ajustan. */
+    public boolean cuadricula;
+    /** Tamano opcional del plano (si falta, se usa el minimo que contiene a todos los nodos). */
+    public Integer filas, columnas;
     public final List<NodoDef> nodos = new ArrayList<>();
     public final List<ConexionDef> conexiones = new ArrayList<>();
     public final List<PersonaDef> personas = new ArrayList<>();

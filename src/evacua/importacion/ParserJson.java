@@ -19,6 +19,9 @@ public final class ParserJson {
         if (!(raiz instanceof Map)) throw new IllegalArgumentException("El JSON debe ser un objeto con \"nodos\" y \"conexiones\".");
         Map<String, Object> m = (Map<String, Object>) raiz;
         PlanoDatos d = new PlanoDatos();
+        d.cuadricula = "cuadricula".equals(m.get("modo"));
+        d.filas = entero(m.get("filas"));
+        d.columnas = entero(m.get("columnas"));
         for (Object o : lista(m, "nodos")) {
             Map<String, Object> n = obj(o, "nodos");
             PlanoDatos.NodoDef nd = new PlanoDatos.NodoDef();
@@ -36,6 +39,7 @@ public final class ParserJson {
             cd.destino = texto(n.get("destino"));
             cd.tiempo = n.get("tiempo") instanceof Double ? (Double) n.get("tiempo") : null;
             cd.capacidad = entero(n.get("capacidad"));
+            cd.bloqueada = Boolean.TRUE.equals(n.get("bloqueada"));
             d.conexiones.add(cd);
         }
         for (Object o : lista(m, "personas")) {

@@ -46,6 +46,56 @@ public class GestorEscenarios {
     }
 
     public static void guardar(File f, Edificio e) throws IOException {
-        Files.write(f.toPath(), aTexto(e, true).getBytes(StandardCharsets.UTF_8));
+        String contenido = f.getName().toLowerCase().endsWith(".json") ? aJson(e) : aTexto(e, true);
+        Files.write(f.toPath(), contenido.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** RN-10: un escenario solo se guarda si hay al menos una salida y todas las personas estan en un nodo valido. */
+    public static java.util.List<String> validarParaGuardar(Edificio e) {
+        java.util.List<String> err = new java.util.ArrayList<>();
+        boolean salida = false;
+        for (int i = 0; i < e.filas; i++)
+            for (int j = 0; j < e.cols; j++) if (e.n[i][j].tipo == TipoNodo.SALIDA) salida = true;
+        if (!salida) err.add("El edificio necesita al menos una salida.");
+        for (Persona p : e.personas)
+            if (!e.dentro(p.f, p.c) || e.n[p.f][p.c].tipo == TipoNodo.VACIO)
+                err.add(p.etiqueta() + " no esta ubicada en un nodo valido.");
+        return err;
+    }
+
+    /** Serializa el escenario completo (nodos, conexiones, bloqueos y personas) a JSON; ParserPlano lo vuelve a leer. */
+    public static String aJson(Edificio e) {
+        StringBuilder sb = new StringBuilder("{\n  \"modo\": \"" + (e.conexionesExplicitas ? "grafo" : "cuadricula") + "\",\n  \"filas\": " + e.filas + ",\n  \"columnas\": " + e.cols + ",\n  \"nodos\": [");
+        boolean primero = true;
+        for (int i = 0; i < e.filas; i++)
+            for (int j = 0; j < e.cols; j++) {
+                Nodo nd = e.n[i][j];
+                if (nd.tipo == TipoNodo.VACIO) continue;
+                sb.append(primero ? "\n" : ",\n").append("    {\"id\": \"").append(esc(e.idDe(i, j))).append("\", \"tipo\": \"")
+                        .append(nd.tipo.name()).append("\", \"x\": ").append(j).append(", \"y\": ").append(i)
+                        .append(", \"bloqueado\": ").append(nd.bloqueado).append('}');
+                primero = false;
+            }
+        sb.append("\n  ],\n  \"conexiones\": [");
+        primero = true;
+        for (evacua.edificio.Conexion k : e.conexiones) {
+            sb.append(primero ? "\n" : ",\n").append("    {\"origen\": \"").append(esc(e.idDe(k.origen / e.cols, k.origen % e.cols)))
+                    .append("\", \"destino\": \"").append(esc(e.idDe(k.destino / e.cols, k.destino % e.cols)))
+                    .append("\", \"tiempo\": ").append(k.tiempo).append(", \"capacidad\": ").append(k.capacidad)
+                    .append(", \"bloqueada\": ").append(k.bloqueada).append('}');
+            primero = false;
+        }
+        sb.append("\n  ],\n  \"personas\": [");
+        primero = true;
+        for (Persona p : e.personas) {
+            sb.append(primero ? "\n" : ",\n").append("    {\"nodo\": \"").append(esc(e.idDe(p.f, p.c))).append("\", \"tipo\": \"")
+                    .append(p.tipo.name()).append("\", \"salud\": \"").append(p.salud.name()).append("\"}");
+            primero = false;
+        }
+        return sb.append("\n  ]\n}\n").toString();
+    }
+
+    private static String esc(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

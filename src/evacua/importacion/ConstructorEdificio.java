@@ -27,18 +27,20 @@ public final class ConstructorEdificio {
             maxX = Math.max(maxX, n.x);
             maxY = Math.max(maxY, n.y);
         }
-        Edificio e = new Edificio(maxY + 1, maxX + 1);
+        Edificio e = new Edificio(Math.max(maxY + 1, d.filas == null ? 0 : d.filas), Math.max(maxX + 1, d.columnas == null ? 0 : d.columnas));
         Map<String, int[]> pos = new HashMap<>();
         for (PlanoDatos.NodoDef n : d.nodos) {
             e.crearNodo(ValidadorPlano.tipo(n.tipo), n.y, n.x, n.id);
             e.n[n.y][n.x].bloqueado = n.bloqueado;
             pos.put(n.id, new int[]{n.y, n.x});
         }
-        e.conexionesExplicitas = true;
+        e.conexionesExplicitas = !d.cuadricula;
         for (PlanoDatos.ConexionDef c : d.conexiones) {
             int[] a = pos.get(c.origen), b = pos.get(c.destino);
             e.conexiones.removeIf(k -> k.origen == a[0] * e.cols + a[1] && k.destino == b[0] * e.cols + b[1]);
-            e.conexiones.add(new Conexion("C" + c.origen + "_" + c.destino, a[0] * e.cols + a[1], b[0] * e.cols + b[1], c.tiempo, c.capacidad));
+            Conexion nk = new Conexion("C" + c.origen + "_" + c.destino, a[0] * e.cols + a[1], b[0] * e.cols + b[1], c.tiempo, c.capacidad);
+            nk.bloqueada = c.bloqueada;
+            e.conexiones.add(nk);
         }
         for (PlanoDatos.PersonaDef p : d.personas) {
             int[] a = pos.get(p.nodo);

@@ -34,6 +34,9 @@ public final class ValidadorPlano {
             if (n.x == null || n.y == null || n.x < 0 || n.y < 0) err.add(ref + ": coordenadas (x, y) invalidas; deben ser enteros >= 0.");
             else if (celdas.put(n.x + "," + n.y, n.id) != null) err.add(ref + ": la celda (" + n.x + "," + n.y + ") ya esta ocupada por otro nodo.");
         }
+        for (PlanoDatos.NodoDef n : d.nodos)
+            if (n.x != null && n.y != null && ((d.columnas != null && n.x >= d.columnas) || (d.filas != null && n.y >= d.filas)))
+                err.add("Nodo " + n.id + ": esta fuera del tamano declarado (" + d.filas + " filas x " + d.columnas + " columnas).");
         if (!d.nodos.isEmpty() && !haySalida) err.add("El plano debe tener al menos una salida.");
         k = 0;
         for (PlanoDatos.ConexionDef c : d.conexiones) {

@@ -2,10 +2,13 @@ package evacua.vista;
 
 import evacua.edificio.Edificio;
 import evacua.edificio.TipoNodo;
+import evacua.persistencia.BaseDatos;
 import evacua.persistencia.GestorEscenarios;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
 import evacua.personas.TipoPersona;
+import evacua.reportes.ComparadorEscenarios;
+import evacua.reportes.ExportadorIndividual;
 import evacua.reportes.ReporteSimulacion;
 import evacua.rutas.BuscadorRutas;
 import evacua.rutas.ResultadoRuta;
@@ -14,7 +17,6 @@ import evacua.simulacion.ParametrosSimulacion;
 
 import javax.swing.*;
 import javax.swing.border.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -39,6 +41,7 @@ public class VentanaPrincipal extends JFrame {
     JCheckBox chkTiempoReal;
     JSlider velocidad;
     File ultimoDir = new File(".");
+    final BaseDatos bd = new BaseDatos("datos");
 
     Edificio vista() {
         return motor != null ? motor.mapa : mapa;
@@ -109,7 +112,10 @@ public class VentanaPrincipal extends JFrame {
         p.add(grupo("Escenarios y persistencia",
                 boton("Cargar escenario", "Lee un escenario .txt (plano + personas)", e -> cargarEscenario()),
                 boton("Guardar escenario", "Guarda plano, bloqueos y personas en un .txt", e -> guardarEscenario()),
-                boton("Importar plano del edificio", "Lee y valida un plano estructurado", e -> importarPlano()),
+                boton("Importar plano del edificio", "Lee y valida un plano .json, .xml o .txt", e -> importarPlano()),
+                boton("Guardar en base de datos", "Guarda el escenario (RN-10) en la base de datos embebida", e -> guardarEnBD()),
+                boton("Cargar de base de datos", "Carga un escenario guardado", e -> cargarDeBD()),
+                boton("Comparar escenarios guardados", "Simula escenarios de la base de datos y compara resultados", e -> compararGuardados()),
                 boton("Comparar escenarios", "Simula dos escenarios y compara resultados", e -> compararEscenarios())));
 
         // Gestionar edificio (nodos y conexiones)
@@ -160,7 +166,8 @@ public class VentanaPrincipal extends JFrame {
         p.add(grupo("Analisis",
                 calor,
                 boton("Generar reporte de simulacion", "Estadisticas, tiempos y cuellos de botella", e -> reporte()),
-                boton("Exportar reporte individual por persona", "Linea de tiempo de una persona a .txt", e -> exportarIndividual())));
+                boton("Exportar reporte individual por persona", "Linea de tiempo de una persona a .txt", e -> exportarIndividual()),
+                boton("Exportar reportes de todas las personas", "Un archivo por persona en una carpeta", e -> exportarTodos())));
 
         p.add(crearLeyenda());
         JScrollPane sp = new JScrollPane(p);
@@ -363,8 +370,9 @@ public class VentanaPrincipal extends JFrame {
         File f = elegirArchivo(false, "escenario.txt");
         if (f == null) return;
         try {
-            if (mapa.salidas().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "El escenario no es valido: necesita al menos una salida sin bloquear.", "Validar escenario", JOptionPane.ERROR_MESSAGE);
+            List<String> errores = GestorEscenarios.validarParaGuardar(mapa);
+            if (!errores.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "El escenario no es valido: " + String.join(" ", errores), "Validar escenario", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             GestorEscenarios.guardar(f, mapa);
@@ -399,23 +407,76 @@ public class VentanaPrincipal extends JFrame {
         File b = elegirArchivo(true, null);
         if (b == null) return;
         try {
-            DefaultTableModel tm = new DefaultTableModel(
-                    new Object[]{"Escenario", "Personas", "Evacuadas", "Ticks", "T. promedio", "Estres prom."}, 0);
-            for (File f : new File[]{a, b}) {
-                MotorSimulacion mo = new MotorSimulacion(GestorEscenarios.leer(f), params.copia(), s -> { });
-                mo.iniciar();
-                while (mo.paso()) { /* headless */ }
-                tm.addRow(new Object[]{f.getName(), mo.mapa.personas.size(), mo.evacuadas(), mo.tick,
-                        String.format("%.1f", mo.promedioEvac()), String.format("%.2f", mo.promedioEstres())});
-            }
-            JTable t = new JTable(tm);
-            t.setEnabled(false);
-            JPanel p = new JPanel(new BorderLayout());
-            p.add(new JScrollPane(t), BorderLayout.CENTER);
-            p.setPreferredSize(new Dimension(620, 110));
-            JOptionPane.showMessageDialog(this, p, "Comparar escenarios", JOptionPane.PLAIN_MESSAGE);
+            List<ComparadorEscenarios.Fila> filas = new java.util.ArrayList<>();
+            for (File f : new File[]{a, b}) filas.add(ComparadorEscenarios.simular(f.getName(), GestorEscenarios.leer(f), params));
+            mostrarTexto("Comparar escenarios", ComparadorEscenarios.aTexto(filas));
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    void guardarEnBD() {
+        String nombre = JOptionPane.showInputDialog(this, "Nombre del escenario:", "Guardar en base de datos", JOptionPane.QUESTION_MESSAGE);
+        if (nombre == null) return;
+        try {
+            bd.guardar(nombre.trim(), mapa);
+            log("Escenario '" + nombre.trim() + "' guardado en la base de datos.");
+        } catch (IllegalArgumentException | java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "No se pudo guardar", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    void cargarDeBD() {
+        try {
+            List<String> nombres = bd.listar();
+            if (nombres.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No hay escenarios guardados.", "Base de datos", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            JComboBox<String> cb = new JComboBox<>(nombres.toArray(new String[0]));
+            if (JOptionPane.showConfirmDialog(this, cb, "Escenario a cargar", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
+            Edificio m = bd.cargar((String) cb.getSelectedItem());
+            timer.stop();
+            motor = null;
+            mapa = m;
+            grid.ajustarTamano();
+            actualizarEstado();
+            log("Escenario cargado de la base de datos: " + cb.getSelectedItem() + ".");
+        } catch (IllegalArgumentException | java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "No se pudo cargar", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    void compararGuardados() {
+        try {
+            List<String> nombres = bd.listar();
+            if (nombres.size() < 2) {
+                JOptionPane.showMessageDialog(this, "Guarde al menos dos escenarios en la base de datos.", "Comparar escenarios", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            JList<String> lista = new JList<>(nombres.toArray(new String[0]));
+            if (JOptionPane.showConfirmDialog(this, new JScrollPane(lista), "Seleccione dos o mas escenarios", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
+            List<String> sel = lista.getSelectedValuesList();
+            if (sel.size() < 2) {
+                JOptionPane.showMessageDialog(this, "Seleccione al menos dos escenarios.");
+                return;
+            }
+            mostrarTexto("Comparar escenarios guardados", ComparadorEscenarios.aTexto(ComparadorEscenarios.compararGuardados(bd, sel, params)));
+        } catch (IllegalArgumentException | java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    void exportarTodos() {
+        if (!requiereMotor()) return;
+        JFileChooser fc = new JFileChooser(ultimoDir);
+        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        try {
+            int k = ExportadorIndividual.exportarTodos(motor, fc.getSelectedFile());
+            log("Exportados " + k + " reportes individuales en " + fc.getSelectedFile().getName() + ".");
+        } catch (java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, "No se pudo exportar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
