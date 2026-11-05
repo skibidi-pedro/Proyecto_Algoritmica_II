@@ -44,7 +44,7 @@ public class Edificio {
     }
 
     public Persona agregar(TipoPersona t, EstadoSalud s, int f, int c) {
-        Persona p = new Persona(sigId++, t, s, f, c);
+        Persona p = Persona.crear(sigId++, t, s, f, c);
         personas.add(p);
         return p;
     }

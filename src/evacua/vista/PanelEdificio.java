@@ -58,7 +58,10 @@ public class PanelEdificio extends JPanel {
             if (nd.bloqueado != valorArrastre) {
                 nd.bloqueado = valorArrastre;
                 v.log((valorArrastre ? "Zona bloqueada" : "Zona desbloqueada") + " en (" + f + "," + c + ").");
-                if (v.motor != null) v.motor.recalcularTodas();
+                if (v.motor != null) {
+                    if (valorArrastre) v.motor.alBloquear(f, c);
+                    else v.motor.recalcularTodas();
+                }
             }
         } else if (v.motor != null) {
             if (click) v.log("Para editar el edificio vuelva a edicion (boton 'Volver a edicion').");

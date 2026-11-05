@@ -1,6 +1,7 @@
 package evacua.simulacion;
 
 import evacua.edificio.Edificio;
+import evacua.personas.NivelEstres;
 import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
 import evacua.personas.EstadoSalud;
@@ -38,32 +39,21 @@ public class MotorSimulacion {
             p.evacuada = false;
             p.asistida = false;
             p.estres = 0;
+            p.bitacora.reiniciar();
+            p.historial.reiniciar();
             p.acum = 0;
             p.hist.clear();
             p.hist.add("t=0 inicio en (" + p.f + "," + p.c + ")");
+            p.bitacora.registrar(0, p.f, p.c, ControlCapacidad.estado(mapa.n[p.f][p.c], params.capacidad));
         }
         for (Persona p : mapa.personas) asignarRuta(p);
         log.accept("Emergencia iniciada con " + mapa.personas.size() + " personas ("
                 + (params.astar ? "A*" : "Dijkstra") + ", semilla " + params.semilla + ").");
     }
 
-    public Persona masCercanoIncapacitado(Persona r) {
-        Persona best = null;
-        int bd = Integer.MAX_VALUE;
-        for (Persona q : mapa.personas) {
-            if (q.evacuada || q.asistida || q.salud != EstadoSalud.INCAPACITADO) continue;
-            int d = Math.abs(q.f - r.f) + Math.abs(q.c - r.c);
-            if (d < bd) {
-                bd = d;
-                best = q;
-            }
-        }
-        return best;
-    }
-
     public void asignarRuta(Persona p) {
         if (p.evacuada) return;
-        p.objetivo = p.tipo == TipoPersona.RESCATE ? masCercanoIncapacitado(p) : null;
+        p.objetivo = p.elegirObjetivo(mapa.personas);
         if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida) {
             p.ruta = new ArrayList<>();
             return;
@@ -88,7 +78,7 @@ public class MotorSimulacion {
         for (Persona p : mapa.personas) {
             if (p.evacuada) continue;
             asignarRuta(p);
-            p.recalculos++;
+            p.historial.recalculos++;
             p.hist.add("t=" + tick + " ruta recalculada (" + p.ruta.size() + " pasos)");
             k++;
         }
@@ -96,18 +86,40 @@ public class MotorSimulacion {
     }
 
     public void generarEvento() {
-        List<int[]> cand = new ArrayList<>();
-        for (int i = 0; i < mapa.filas; i++)
-            for (int j = 0; j < mapa.cols; j++)
-                if (mapa.n[i][j].tipo == TipoNodo.PASILLO && !mapa.n[i][j].bloqueado) cand.add(new int[]{i, j});
-        if (cand.isEmpty()) {
+        int[] q = EventoAleatorio.colapsarPasillo(mapa, rnd);
+        if (q == null) {
             log.accept("No hay pasillos disponibles para el evento aleatorio.");
             return;
         }
-        int[] q = cand.get(rnd.nextInt(cand.size()));
-        mapa.n[q[0]][q[1]].bloqueado = true;
         log.accept("t=" + tick + " EVENTO: colapso del pasillo (" + q[0] + "," + q[1] + ").");
+        contarBloqueo(q[0], q[1]);
         recalcularTodas();
+    }
+
+    /** Llamar despues de bloquear a mano un nodo: cuenta los afectados y recalcula (RN-07). */
+    public void alBloquear(int f, int c) {
+        contarBloqueo(f, c);
+        recalcularTodas();
+    }
+
+    private void contarBloqueo(int f, int c) {
+        for (Persona p : mapa.personas) {
+            if (p.evacuada) continue;
+            for (int[] q : p.ruta)
+                if (q[0] == f && q[1] == c) {
+                    p.historial.bloqueosSufridos++;
+                    break;
+                }
+        }
+    }
+
+    private boolean cercaDePeligro(Persona p) {
+        int[][] d = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] x : d) {
+            int nf = p.f + x[0], nc = p.c + x[1];
+            if (mapa.dentro(nf, nc) && mapa.n[nf][nc].tipo != TipoNodo.VACIO && mapa.n[nf][nc].bloqueado) return true;
+        }
+        return false;
     }
 
     private void chequearRescate(Persona p) {
@@ -133,9 +145,10 @@ public class MotorSimulacion {
             if (p.evacuada) continue;
             double v = p.tipo.vel * p.salud.vel;
             if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : 0;
-            if (p.estres >= params.umbral) v *= 0.6;
+            if (NivelEstres.supera(p.estres, params.umbral)) v *= 0.6;
+            if (cercaDePeligro(p)) p.aumentarEstres(0.1);
             if (v <= 0) {
-                p.estres += 0.3;
+                p.aumentarEstres(0.3);
                 continue;
             }
             p.acum += v;
@@ -146,7 +159,7 @@ public class MotorSimulacion {
                 if (p.ruta.isEmpty()) {
                     asignarRuta(p);
                     if (p.ruta.isEmpty()) {
-                        p.estres += 0.5;
+                        p.aumentarEstres(0.5);
                         break;
                     }
                 }
@@ -154,13 +167,15 @@ public class MotorSimulacion {
                 Nodo ns = mapa.n[sig[0]][sig[1]];
                 if (ns.bloqueado) {
                     p.hist.add("t=" + tick + " ruta bloqueada en (" + sig[0] + "," + sig[1] + "), recalcula");
-                    p.recalculos++;
+                    p.historial.recalculos++;
+                    p.historial.bloqueosSufridos++;
                     asignarRuta(p);
                     break;
                 }
                 if (ns.tipo != TipoNodo.SALIDA && ns.ocupacion >= params.capacidad) {
-                    p.estres += 1;
+                    p.aumentarEstres(1);
                     ns.esperas++;
+                    p.historial.esperaCuelloBotella++;
                     break;
                 }
                 mapa.n[p.f][p.c].ocupacion--;
@@ -171,6 +186,7 @@ public class MotorSimulacion {
                 p.pasos++;
                 movio = true;
                 p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
+                    p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
                 if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null) {
                     p.evacuada = true;
                     p.tEvac = tick;
@@ -180,7 +196,7 @@ public class MotorSimulacion {
                     chequearRescate(p);
                 }
             }
-            if (movio) p.estres = Math.max(0, p.estres - 0.2);
+            if (movio) p.reducirEstres(0.2);
         }
         boolean todas = true;
         for (Persona p : mapa.personas) {

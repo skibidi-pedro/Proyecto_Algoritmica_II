@@ -1,6 +1,7 @@
 package evacua.reportes;
 
 import evacua.personas.Persona;
+import evacua.personas.RegistroBitacora;
 import evacua.simulacion.MotorSimulacion;
 
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public class ReporteSimulacion {
             sb.append("\nPor persona:\n");
             for (Persona p : m.mapa.personas)
                 sb.append(String.format("  %-34s %s  pasos=%d  recalculos=%d  estres=%.1f%n", p.etiqueta(),
-                        p.evacuada ? "EVACUADA t=" + p.tEvac : "NO EVACUADA", p.pasos, p.recalculos, p.estres));
+                        p.evacuada ? "EVACUADA t=" + p.tEvac : "NO EVACUADA", p.pasos, p.historial.recalculos, p.estres));
             return sb.toString();
         }
 
@@ -42,8 +43,12 @@ public class ReporteSimulacion {
             StringBuilder sb = new StringBuilder();
             sb.append("REPORTE INDIVIDUAL - ").append(p.etiqueta()).append('\n');
             sb.append("Estado final: ").append(p.evacuada ? "evacuada en t=" + p.tEvac : "no evacuada").append('\n');
-            sb.append("Pasos: ").append(p.pasos).append("  Recalculos: ").append(p.recalculos)
+            sb.append("Pasos: ").append(p.pasos).append("  Recalculos: ").append(p.historial.recalculos)
+                    .append("  Bloqueos sufridos: ").append(p.historial.bloqueosSufridos)
+                    .append("  Espera en cuellos de botella: ").append(p.historial.esperaCuelloBotella)
                     .append(String.format("  Estres final: %.1f%n", p.estres));
+            sb.append("\nBitacora de recorrido (nodo visitado, paso y estado del nodo):\n");
+            for (RegistroBitacora r : p.bitacora) sb.append("  ").append(r).append('\n');
             sb.append("\nLinea de tiempo:\n");
             for (String h : p.hist) sb.append("  ").append(h).append('\n');
             return sb.toString();
