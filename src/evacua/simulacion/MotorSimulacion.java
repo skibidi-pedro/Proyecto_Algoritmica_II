@@ -48,6 +48,8 @@ public class MotorSimulacion {
             p.bitacora.reiniciar();
             p.historial.reiniciar();
             p.acum = 0;
+            p.esperando = 0;
+            p.recalculoPorCongestion = false;
             p.hist.clear();
             p.hist.add("t=0 inicio en (" + p.f + "," + p.c + ")");
             p.bitacora.registrar(0, p.f, p.c, ControlCapacidad.estado(mapa.n[p.f][p.c], params.capacidad));
@@ -77,6 +79,22 @@ public class MotorSimulacion {
             exploradosTotal += r.explorados;
         }
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);
+    }
+
+    /** El siguiente nodo esta lleno: busca otro camino que lo rodee (una vez por espera). Si no hay, sigue esperando. */
+    private void rodearCongestion(Persona p, int[] lleno) {
+        p.recalculoPorCongestion = true;
+        List<int[]> metas = p.objetivo != null ? Collections.singletonList(new int[]{p.objetivo.f, p.objetivo.c}) : mapa.salidas();
+        ResultadoRuta r = RecalculadorRutas.evitandoCongestion(mapa, p, metas, params.astar, params.capacidad);
+        exploradosTotal += r.explorados;
+        if (r.ruta == null || r.ruta.isEmpty()) {
+            p.hist.add("t=" + tick + " congestion en (" + lleno[0] + "," + lleno[1] + "), no hay otro camino: espera");
+            return;
+        }
+        p.ruta = new ArrayList<>(r.ruta);
+        p.historial.recalculos++;
+        p.hist.add("t=" + tick + " congestion en (" + lleno[0] + "," + lleno[1] + "), recalcula y toma otro camino");
+        log.accept("t=" + tick + " " + p.etiqueta() + " rodea la congestion en (" + lleno[0] + "," + lleno[1] + ").");
     }
 
     public void recalcularTodas() {
@@ -182,6 +200,8 @@ public class MotorSimulacion {
                     p.aumentarEstres(1);
                     ns.esperas++;
                     p.historial.esperaCuelloBotella++;
+                    p.esperando++;
+                    if (p.esperando >= params.esperaRecalculo && !p.recalculoPorCongestion) rodearCongestion(p, sig);
                     break;
                 }
                 mapa.n[p.f][p.c].ocupacion--;
@@ -190,6 +210,8 @@ public class MotorSimulacion {
                 ns.ocupacion++;
                 p.ruta.remove(0);
                 p.pasos++;
+                p.esperando = 0;
+                p.recalculoPorCongestion = false;
                 movio = true;
                 p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
                     p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));

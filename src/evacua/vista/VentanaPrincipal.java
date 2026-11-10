@@ -15,6 +15,7 @@ import evacua.reportes.ReporteSimulacion;
 import evacua.rutas.BuscadorRutas;
 import evacua.rutas.ResultadoRuta;
 import evacua.simulacion.MotorSimulacion;
+import evacua.simulacion.RegistroSalida;
 import evacua.simulacion.ParametrosSimulacion;
 
 import javax.swing.*;
@@ -48,6 +49,8 @@ public class VentanaPrincipal extends JFrame {
     JButton btnDeshacer;
     int pisoActual;            // 0 = piso 1
     JPanel panelPisos;
+    JTextArea txtSalidas;
+    JScrollPane panelSalidas;
     int pisosMostrados = -1;
     boolean selectorEnEdicion;
 
@@ -70,6 +73,13 @@ public class VentanaPrincipal extends JFrame {
         panelPisos.setBorder(new CompoundBorder(new TitledBorder("Pisos"), new EmptyBorder(2, 4, 4, 4)));
         JPanel este = new JPanel(new BorderLayout());
         este.add(panelPisos, BorderLayout.NORTH);
+        txtSalidas = new JTextArea();
+        txtSalidas.setEditable(false);
+        txtSalidas.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        panelSalidas = new JScrollPane(txtSalidas);
+        panelSalidas.setBorder(new TitledBorder("Salieron (0)"));
+        panelSalidas.setPreferredSize(new Dimension(150, 100));
+        este.add(panelSalidas, BorderLayout.CENTER);
         add(este, BorderLayout.EAST);
 
         logArea = new JTextArea(6, 40);
@@ -333,9 +343,24 @@ public class VentanaPrincipal extends JFrame {
         log("Piso " + mapa.pisos + " agregado. Pinte sus nodos; las escaleras se conectan con las del piso de abajo.");
     }
 
+    /** Lista, debajo del selector de pisos, a quienes ya salieron (en orden de salida, con su id y tiempo). */
+    void actualizarSalidas() {
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        if (motor != null)
+            for (RegistroSalida r : motor.salidas) {
+                sb.append(r.orden).append(". P").append(r.id).append("  t=").append(r.tiempo).append('\n');
+                n++;
+            }
+        txtSalidas.setText(sb.toString());
+        ((TitledBorder) panelSalidas.getBorder()).setTitle("Salieron (" + n + ")");
+        panelSalidas.repaint();
+    }
+
     void actualizarEstado() {
         Edificio m = vista();
         btnDeshacer.setEnabled(motor == null && historial.puedeDeshacer());
+        actualizarSalidas();
         if (m.pisos != pisosMostrados || selectorEnEdicion != (motor == null)) reconstruirSelector();
         if (motor == null) {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
@@ -423,6 +448,7 @@ public class VentanaPrincipal extends JFrame {
         JTextField lim = new JTextField(String.valueOf(params.limite));
         JTextField umb = new JTextField(String.valueOf(params.umbral));
         JTextField cap = new JTextField(String.valueOf(params.capacidad));
+        JTextField esp = new JTextField(String.valueOf(params.esperaRecalculo));
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
         alg.setSelectedIndex(params.astar ? 0 : 1);
         JPanel f = new JPanel(new GridLayout(0, 2, 6, 6));
@@ -436,6 +462,8 @@ public class VentanaPrincipal extends JFrame {
         f.add(umb);
         f.add(new JLabel("Capacidad por nodo"));
         f.add(cap);
+        f.add(new JLabel("Ticks de espera antes de rodear una congestion"));
+        f.add(esp);
         f.add(new JLabel("Algoritmo de ruta"));
         f.add(alg);
         if (JOptionPane.showConfirmDialog(this, f, "Configurar parametros de simulacion",
@@ -446,12 +474,14 @@ public class VentanaPrincipal extends JFrame {
             int li = Integer.parseInt(lim.getText().trim());
             double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
-            if (pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
+            int es = Integer.parseInt(esp.getText().trim());
+            if (pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1 || es < 1) throw new NumberFormatException();
             params.prob = pr;
             params.semilla = se;
             params.limite = li;
             params.umbral = um;
             params.capacidad = ca;
+            params.esperaRecalculo = es;
             params.astar = alg.getSelectedIndex() == 0;
             log("Parametros actualizados.");
             actualizarEstado();

@@ -123,8 +123,12 @@ public class PanelEdificio extends JPanel {
                 int x = j * CELL, y = i * CELL;
                 g.setColor(nd.tipo.color);
                 g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
-                if (v.verCalor && nd.visitas > 0) {
-                    float a = Math.min(0.85f, 0.12f + 0.73f * nd.visitas / maxV);
+                // En vivo: ocupacion actual del nodo (se apaga cuando la persona se va). Al terminar: ocupacion acumulada.
+                boolean enVivo = v.motor != null && !v.motor.terminado;
+                float calor = enVivo ? (nd.ocupacion > 0 ? 0.25f + 0.6f * Math.min(1f, nd.ocupacion / (float) v.motor.params.capacidad) : 0f)
+                        : (nd.visitas > 0 ? 0.12f + 0.73f * nd.visitas / maxV : 0f);
+                if (v.verCalor && calor > 0) {
+                    float a = Math.min(0.85f, calor);
                     g.setColor(new Color(1f, 0.1f, 0.0f, a));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 }

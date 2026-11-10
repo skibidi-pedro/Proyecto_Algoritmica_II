@@ -18,6 +18,9 @@ public abstract class Persona {
     public int tEvac = -1, pasos;
     public List<int[]> ruta = new ArrayList<>();
     public Persona objetivo;
+    /** Ticks seguidos esperando un nodo lleno, y si ya busco otro camino en esta espera. */
+    public int esperando;
+    public boolean recalculoPorCongestion;
     public final List<String> hist = new ArrayList<>();
     public final Bitacora bitacora = new Bitacora();
     public final HistorialEventos historial = new HistorialEventos();
