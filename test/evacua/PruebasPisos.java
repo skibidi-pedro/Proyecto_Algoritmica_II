@@ -74,6 +74,21 @@ public class PruebasPisos {
         while (m.paso()) { }
         chk(m.evacuadas() == 9, "evacuan las 9 personas de los 3 pisos: " + m.evacuadas());
 
+        // Cola de salidas -> CSV con tiempo y estado de quienes salieron
+        chk(m.salidas.tamano() == 9, "la cola de salidas tiene 9 registros");
+        java.io.File csv = java.io.File.createTempFile("salidas", ".csv");
+        int n1 = evacua.reportes.ExportadorSalidas.exportar(m, csv), n2 = evacua.reportes.ExportadorSalidas.exportar(m, csv);
+        List<String> lin = Files.readAllLines(csv.toPath());
+        chk(n1 == 9 && n2 == 9 && lin.size() == 10 && lin.get(0).equals(evacua.reportes.ExportadorSalidas.CABECERA), "CSV de salidas: cabecera + 9 filas, exportable dos veces");
+        int previo = -1;
+        boolean ordenado = true;
+        for (int i = 1; i < lin.size(); i++) {
+            String[] c = lin.get(i).split(",");
+            ordenado &= Integer.parseInt(c[0]) == i && Integer.parseInt(c[4]) >= previo;
+            previo = Integer.parseInt(c[4]);
+        }
+        chk(ordenado, "el CSV esta en orden de salida (tiempos no decrecientes)");
+
         // Bloquear durante la simulacion recalcula las rutas (RN-07)
         ParametrosSimulacion pr = new ParametrosSimulacion();
         pr.prob = 0;

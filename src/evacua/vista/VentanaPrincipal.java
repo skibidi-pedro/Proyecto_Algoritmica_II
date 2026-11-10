@@ -9,6 +9,7 @@ import evacua.personas.Persona;
 import evacua.personas.TipoPersona;
 import evacua.reportes.ComparadorEscenarios;
 import evacua.reportes.ExportadorIndividual;
+import evacua.reportes.ExportadorSalidas;
 import evacua.reportes.ReporteSimulacion;
 import evacua.rutas.BuscadorRutas;
 import evacua.rutas.ResultadoRuta;
@@ -191,7 +192,8 @@ public class VentanaPrincipal extends JFrame {
                 calor,
                 boton("Generar reporte de simulacion", "Estadisticas, tiempos y cuellos de botella", e -> reporte()),
                 boton("Exportar reporte individual por persona", "Linea de tiempo de una persona a .txt", e -> exportarIndividual()),
-                boton("Exportar reportes de todas las personas", "Un archivo por persona en una carpeta", e -> exportarTodos())));
+                boton("Exportar reportes de todas las personas", "Un archivo por persona en una carpeta", e -> exportarTodos()),
+                boton("Exportar salidas (CSV)", "Tiempo y estado de quienes salieron, en orden de salida", e -> exportarSalidas())));
 
         p.add(crearLeyenda());
         JScrollPane sp = new JScrollPane(p);
@@ -316,6 +318,7 @@ public class VentanaPrincipal extends JFrame {
         timer.stop();
         Edificio copia = mapa.copia();
         motor = new MotorSimulacion(copia, params.copia(), this::log);
+        motor.alTerminar = this::guardarSalidasCsv;
         motor.iniciar();
         grid.ajustarTamano();
         if (chkTiempoReal.isSelected()) {
@@ -325,6 +328,30 @@ public class VentanaPrincipal extends JFrame {
         }
         grid.repaint();
         actualizarEstado();
+    }
+
+    /** Al terminar la simulacion guarda datos/salidas.csv con el tiempo y estado de quienes salieron. */
+    void guardarSalidasCsv() {
+        try {
+            File f = new File("datos", "salidas.csv");
+            int n = ExportadorSalidas.exportar(motor, f);
+            log("Salidas guardadas en " + f.getPath() + " (" + n + " personas).");
+        } catch (java.io.IOException ex) {
+            log("No se pudo guardar el CSV de salidas: " + ex.getMessage());
+        }
+    }
+
+    void exportarSalidas() {
+        if (!requiereMotor()) return;
+        JFileChooser fc = new JFileChooser(ultimoDir);
+        fc.setSelectedFile(new File("salidas.csv"));
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        try {
+            int n = ExportadorSalidas.exportar(motor, fc.getSelectedFile());
+            log("Salidas exportadas a " + fc.getSelectedFile().getName() + " (" + n + " personas).");
+        } catch (java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, "No se pudo exportar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     void avanzar() {

@@ -111,7 +111,8 @@ Proyecto_Algoritmica_II/
 │       ├── reportes/                         [Integrante 1]
 │       │   ├── ReporteSimulacion.java        (reporte general e individual)
 │       │   ├── ComparadorEscenarios.java     (compara escenarios, registra resultados)
-│       │   └── ExportadorIndividual.java     (un archivo por persona, RN-14)
+│       │   ├── ExportadorIndividual.java     (un archivo por persona, RN-14)
+│       │   └── ExportadorSalidas.java        (CSV de quienes salieron, desde la cola de salidas)
 │       │
 │       ├── edificio/                         [Integrante 2]
 │       │   ├── Edificio.java                 (nodos, CRUD, conexiones, bloqueos, copia)
@@ -216,7 +217,7 @@ Proyecto_Algoritmica_II/
 Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. Es Java Swing, sin dependencias externas.
 
 Qué hay hoy (por integrante):
-- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas y la lista doble la bitácora; `Pila` y `Cola` no se usan aún en la simulación; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
+- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora y la cola las salidas; `Pila` no se usa aún en la simulación; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
 - **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas; importación de planos `.json`, `.xml` y `.txt` con validación que informa todos los errores.
 - **Integrante 3:** jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
@@ -238,7 +239,7 @@ Lo que todavía falta para cumplir el documento por completo:
 4. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy se hace importando un plano o por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
 5. **Exportar los reportes individuales al terminar (RN-14).** Hoy se exportan con un botón; deben generarse automáticamente cuando termina la simulación, haya evacuado o no cada persona. *(Integrante 1)*
 6. **Capacidad de las conexiones (RN-03).** Se valida y se guarda, pero la simulación solo controla la capacidad por nodo. Hacer que también limite cuántas personas cruzan una conexión a la vez. *(Integrante 3 con Integrante 2)*
-7. **Usar `Pila` y `Cola`.** Están implementadas y probadas, pero la simulación todavía no las usa (por ejemplo, la cola de espera en un nodo lleno). *(Integrante 1)*
+7. **Usar `Pila`.** `Cola` ya se usa: guarda a las personas que salen del edificio y de ella sale `datos/salidas.csv`. `Pila` está implementada y probada, pero la simulación todavía no la usa. *(Integrante 1)*
 8. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
    - **Terremoto:** colapsa pasillos y escaleras al azar, con réplicas; mucho estrés al inicio; las personas se mueven más lento.
    - **Incendio:** empieza en un nodo y se propaga a los vecinos cada cierto número de pasos; bloquea los nodos quemados; el estrés sube por cercanía al fuego.

@@ -1,6 +1,7 @@
 package evacua.simulacion;
 
 import evacua.edificio.Edificio;
+import evacua.estructuras.Cola;
 import evacua.personas.NivelEstres;
 import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
@@ -23,6 +24,10 @@ public class MotorSimulacion {
     public final java.util.function.Consumer<String> log;
     public int tick;
     public boolean terminado;
+    /** Cola de salidas: cada persona que sale del edificio se encola con su tiempo y estado (orden FIFO). */
+    public Cola<RegistroSalida> salidas = new Cola<>();
+    /** Se llama una vez cuando la simulacion termina (por ejemplo, para guardar el CSV de salidas). */
+    public Runnable alTerminar;
     public int exploradosTotal;
 
     public MotorSimulacion(Edificio mapa, ParametrosSimulacion params, java.util.function.Consumer<String> log) {
@@ -35,6 +40,7 @@ public class MotorSimulacion {
     public void iniciar() {
         tick = 0;
         terminado = false;
+        salidas = new Cola<>();
         for (Persona p : mapa.personas) {
             p.evacuada = false;
             p.asistida = false;
@@ -192,6 +198,7 @@ public class MotorSimulacion {
                     p.tEvac = tick;
                     ns.ocupacion--;
                     p.hist.add("t=" + tick + " EVACUADA");
+                    salidas.encolar(new RegistroSalida(salidas.tamano() + 1, p, tick));
                 } else {
                     chequearRescate(p);
                 }
@@ -207,6 +214,7 @@ public class MotorSimulacion {
             terminado = true;
             for (Persona p : mapa.personas)
                 if (!p.evacuada) p.hist.add("t=" + tick + " NO EVACUADA (tiempo limite)");
+            if (alTerminar != null) alTerminar.run();
             log.accept("Simulacion terminada en t=" + tick + ": " + evacuadas() + "/" + mapa.personas.size() + " evacuadas.");
         }
         return !terminado;
