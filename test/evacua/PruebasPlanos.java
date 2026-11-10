@@ -24,7 +24,7 @@ public class PruebasPlanos {
     }
 
     public static void main(String[] args) throws Exception {
-        Edificio j = leer("edificio_simple.json"), x = leer("edificio_simple.xml");
+        Edificio j = leer("edificio_ids.json"), x = leer("edificio_ids.xml");
         chk(j.filas == 3 && j.cols == 6 && j.conexiones.size() == 6 && j.personas.size() == 2, "JSON: dimensiones/conexiones/personas");
         chk(x.filas == j.filas && x.cols == j.cols && x.conexiones.size() == j.conexiones.size(), "XML equivale al JSON");
         chk(j.conexionesExplicitas, "plano importado usa conexiones explicitas");
@@ -32,7 +32,7 @@ public class PruebasPlanos {
         // RN-15: plano invalido -> mensaje con todos los errores
         String msg = "";
         try {
-            leer("invalido.json");
+            leer("edificio_error.json");
         } catch (IllegalArgumentException ex) {
             msg = ex.getMessage();
         }
@@ -58,13 +58,13 @@ public class PruebasPlanos {
         j.n[1][3].bloqueado = true;
         chk(BuscadorRutas.buscar(j, 1, 1, metas, true).ruta == null, "Sin camino cuando se bloquean nodo y conexion");
 
-        // A* admisible en la cuadricula demo: mismo costo que Dijkstra desde cada celda caminable
-        Edificio demo = leer("edificio_demo.txt");
+        // A* admisible en la cuadricula de edificio.txt: mismo costo que Dijkstra desde cada celda caminable
+        Edificio grid = leer("edificio.txt");
         boolean igual = true;
-        for (int f = 0; f < demo.filas; f++)
-            for (int c = 0; c < demo.cols; c++)
-                if (demo.caminable(f, c)) {
-                    ResultadoRuta r1 = BuscadorRutas.buscar(demo, f, c, demo.salidas(), false), r2 = BuscadorRutas.buscar(demo, f, c, demo.salidas(), true);
+        for (int f = 0; f < grid.filas; f++)
+            for (int c = 0; c < grid.cols; c++)
+                if (grid.caminable(f, c)) {
+                    ResultadoRuta r1 = BuscadorRutas.buscar(grid, f, c, grid.salidas(), false), r2 = BuscadorRutas.buscar(grid, f, c, grid.salidas(), true);
                     igual &= (r1.ruta == null) == (r2.ruta == null) && Math.abs(r1.costo - r2.costo) < 1e-9;
                 }
         chk(igual, "A* admisible: mismo costo que Dijkstra en toda la cuadricula");
@@ -95,7 +95,7 @@ public class PruebasPlanos {
         chk(e.conexiones.isEmpty() && BuscadorRutas.buscar(e, 0, 0, e.salidas(), true).ruta == null, "eliminarNodo quita conexiones");
 
         // Simulacion sobre plano importado
-        Edificio s = leer("edificio_simple.xml");
+        Edificio s = leer("edificio_ids.xml");
         MotorSimulacion m = new MotorSimulacion(s, new ParametrosSimulacion(), t -> { });
         m.iniciar();
         while (m.paso()) { }

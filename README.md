@@ -98,8 +98,6 @@ Cada integrante es **dueño de sus paquetes** dentro de `src/`. No se editan arc
 ```
 Proyecto_Algoritmica_II/
 ├── README.md
-├── prototipo/
-│   └── EvacuaPrototipo.java        <- prototipo original de un solo archivo (referencia)
 ├── src/
 │   └── evacua/
 │       ├── Main.java                         [Integrante 1] punto de entrada
@@ -150,7 +148,7 @@ Proyecto_Algoritmica_II/
 │           ├── EventoAleatorio.java          (colapso de pasillos, RN-18)
 │           ├── ControlCapacidad.java         (Congestionado, RN-08)
 │           └── ParametrosSimulacion.java
-├── recursos/planos/                          planos de prueba (.txt, .json, .xml, uno invalido)
+├── recursos/planos/                          planos de ejemplo: edificio.txt, edificio_ids.json, edificio_ids.xml y edificio_error.json (inválido a propósito)
 ├── test/evacua/                              PruebasEstructuras, PruebasPlanos, PruebasPersistencia, PruebasPisos
 └── docs/                                     informe, diagrama de casos de uso
 ```
@@ -215,7 +213,7 @@ Proyecto_Algoritmica_II/
 
 ## 7. Estado actual del repositorio
 
-Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. El prototipo original de un solo archivo queda en `prototipo/EvacuaPrototipo.java` como referencia. Es Java Swing, sin dependencias externas.
+Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. Es Java Swing, sin dependencias externas.
 
 Qué hay hoy (por integrante):
 - **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas y la lista doble la bitácora; `Pila` y `Cola` no se usan aún en la simulación; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
@@ -249,7 +247,7 @@ Lo que todavía falta para cumplir el documento por completo:
 
    Estructura sugerida: `simulacion/Desastre.java` (clase base con `paso(motor)`), una clase por tipo, `TipoDesastre.java` (enum para el selector) y una lista desplegable en "Configurar parámetros de simulación". Cada desastre lleva su probabilidad, intensidad y semilla. *(Integrante 3, con `vista` del Integrante 2 para el selector)*
 
-Formato `.txt` (cuadrícula, ver `recursos/planos/edificio_3pisos.txt`):
+Formato `.txt` (cuadrícula, ver `recursos/planos/edificio.txt`):
 ```
 #PISO 1      <- (opcional con un solo piso) cada piso es un bloque de filas del mismo tamaño
 HHHPPSS      <- filas del piso (todas con el mismo largo; al menos una S en todo el edificio)
@@ -260,7 +258,7 @@ H..P.E.
 1 0 1 ADULTO SANO   <- o: piso fila columna TIPO SALUD (varios pisos; el piso empieza en 1)
 ```
 
-Formato `.json` (ver `recursos/planos/edificio_simple.json`; el `.xml` equivale):
+Formato `.json` (ver `recursos/planos/edificio_ids.json`; el `.xml` equivale):
 ```
 { "modo": "grafo",            // "cuadricula" = vecinos de la cuadrícula; "grafo" = solo las conexiones listadas
   "filas": 3, "columnas": 6,  // opcional

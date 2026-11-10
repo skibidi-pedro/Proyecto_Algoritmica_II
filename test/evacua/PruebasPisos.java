@@ -26,7 +26,7 @@ public class PruebasPisos {
     }
 
     public static void main(String[] args) throws Exception {
-        Edificio e = leer("edificio_3pisos.txt");
+        Edificio e = leer("edificio.txt");
         chk(e.pisos == 3 && e.filasPorPiso == 12 && e.filas == 36 && e.personas.size() == 9, "3 pisos de 12 filas, 9 personas");
         chk(e.piso(e.personas.get(6).f) == 1 && e.piso(e.personas.get(8).f) == 2, "personas ubicadas en los pisos 2 y 3");
 

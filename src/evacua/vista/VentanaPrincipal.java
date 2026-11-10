@@ -52,9 +52,9 @@ public class VentanaPrincipal extends JFrame {
     }
 
     public VentanaPrincipal() {
-        super("Evacua - Prototipo de interfaz");
+        super("EVACUA");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        mapa = crearDemo();
+        mapa = crearEdificioInicial();
         grid = new PanelEdificio(this);
         timer = new javax.swing.Timer(250, e -> avanzar());
 
@@ -80,12 +80,12 @@ public class VentanaPrincipal extends JFrame {
 
         grid.ajustarTamano();
         actualizarEstado();
-        log("Prototipo listo. Elija una herramienta o pulse 'Iniciar emergencia y simular evacuacion'.");
+        log("Listo. Elija una herramienta o pulse 'Iniciar emergencia y simular evacuacion'.");
         setSize(1280, 840);
         setLocationRelativeTo(null);
     }
 
-    Edificio crearDemo() {
+    Edificio crearEdificioInicial() {
         Edificio m = new Edificio(12, 20, 3);
         m.rect(TipoNodo.PASILLO, 5, 1, 6, 18);
         m.rect(TipoNodo.HABITACION, 1, 1, 3, 5);
