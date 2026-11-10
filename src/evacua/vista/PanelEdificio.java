@@ -54,6 +54,7 @@ public class PanelEdificio extends JPanel {
         int c = e.getX() / CELL, f = piso * m.filasPorPiso + e.getY() / CELL;
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
+        if (click && v.motor == null && v.herramienta != Herramienta.NINGUNA) v.guardarParaDeshacer();
         if (v.herramienta == Herramienta.BLOQUEO) {
             if (nd.tipo == TipoNodo.VACIO) return;
             if (valorArrastre == null) valorArrastre = !nd.bloqueado;

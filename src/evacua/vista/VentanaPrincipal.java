@@ -1,6 +1,7 @@
 package evacua.vista;
 
 import evacua.edificio.Edificio;
+import evacua.edificio.HistorialEdicion;
 import evacua.edificio.TipoNodo;
 import evacua.persistencia.BaseDatos;
 import evacua.persistencia.GestorEscenarios;
@@ -43,6 +44,8 @@ public class VentanaPrincipal extends JFrame {
     JSlider velocidad;
     File ultimoDir = new File(".");
     final BaseDatos bd = new BaseDatos("datos");
+    final HistorialEdicion historial = new HistorialEdicion();
+    JButton btnDeshacer;
     int pisoActual;            // 0 = piso 1
     JPanel panelPisos;
     int pisosMostrados = -1;
@@ -79,6 +82,12 @@ public class VentanaPrincipal extends JFrame {
         sur.add(new JScrollPane(logArea), BorderLayout.CENTER);
         add(sur, BorderLayout.SOUTH);
 
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("control Z"), "deshacer");
+        getRootPane().getActionMap().put("deshacer", new AbstractAction() {
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                deshacer();
+            }
+        });
         grid.ajustarTamano();
         actualizarEstado();
         log("Listo. Elija una herramienta o pulse 'Iniciar emergencia y simular evacuacion'.");
@@ -145,7 +154,9 @@ public class VentanaPrincipal extends JFrame {
                 boton("Comparar escenarios", "Simula dos escenarios y compara resultados", e -> compararEscenarios())));
 
         // Gestionar edificio (nodos y conexiones)
+        btnDeshacer = boton("Deshacer (Ctrl+Z)", "Deshace el ultimo cambio al edificio (solo en modo edicion)", e -> deshacer());
         p.add(grupo("Gestionar edificio (nodos y conexiones)",
+                btnDeshacer,
                 tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar"),
                 tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Pinta nodos de tipo habitacion"),
                 tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pinta nodos de tipo pasillo"),
@@ -290,8 +301,31 @@ public class VentanaPrincipal extends JFrame {
         panelPisos.repaint();
     }
 
+    /** Guarda el edificio de edicion en la pila antes de cambiarlo. */
+    void guardarParaDeshacer() {
+        historial.guardar(mapa);
+        btnDeshacer.setEnabled(motor == null);
+    }
+
+    void deshacer() {
+        if (motor != null) {
+            log("Para deshacer vuelva primero a edicion.");
+            return;
+        }
+        Edificio anterior = historial.deshacer();
+        if (anterior == null) {
+            log("No hay nada que deshacer.");
+            return;
+        }
+        mapa = anterior;
+        grid.ajustarTamano();
+        actualizarEstado();
+        log("Cambio deshecho (" + historial.tamano() + " mas en el historial).");
+    }
+
     void agregarPiso() {
         if (motor != null) return;
+        guardarParaDeshacer();
         mapa = mapa.copiaConPisos(mapa.pisos + 1);
         pisoActual = mapa.pisos - 1;
         grid.repaint();
@@ -301,6 +335,7 @@ public class VentanaPrincipal extends JFrame {
 
     void actualizarEstado() {
         Edificio m = vista();
+        btnDeshacer.setEnabled(motor == null && historial.puedeDeshacer());
         if (m.pisos != pisosMostrados || selectorEnEdicion != (motor == null)) reconstruirSelector();
         if (motor == null) {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
@@ -442,6 +477,7 @@ public class VentanaPrincipal extends JFrame {
         if (f == null) return;
         try {
             Edificio m = GestorEscenarios.leer(f);
+            guardarParaDeshacer();
             timer.stop();
             motor = null;
             mapa = m;
@@ -475,6 +511,7 @@ public class VentanaPrincipal extends JFrame {
         try {
             Edificio m = GestorEscenarios.leer(f);
             m.personas.clear();
+            guardarParaDeshacer();
             timer.stop();
             motor = null;
             mapa = m;
@@ -523,6 +560,7 @@ public class VentanaPrincipal extends JFrame {
             JComboBox<String> cb = new JComboBox<>(nombres.toArray(new String[0]));
             if (JOptionPane.showConfirmDialog(this, cb, "Escenario a cargar", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
             Edificio m = bd.cargar((String) cb.getSelectedItem());
+            guardarParaDeshacer();
             timer.stop();
             motor = null;
             mapa = m;

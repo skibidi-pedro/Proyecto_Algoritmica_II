@@ -116,6 +116,7 @@ Proyecto_Algoritmica_II/
 │       │
 │       ├── edificio/                         [Integrante 2]
 │       │   ├── Edificio.java                 (nodos, CRUD, conexiones, bloqueos, copia)
+│       │   ├── HistorialEdicion.java         (pila de "Deshacer" del editor)
 │       │   ├── Nodo.java, TipoNodo.java, EstadoNodo.java
 │       │   ├── Conexion.java                 (tiempo > 0 y capacidad, RN-03)
 │       │   └── Grafo.java                    (aristas ponderadas con capacidad)
@@ -207,7 +208,7 @@ Proyecto_Algoritmica_II/
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
-- *(Pendiente)* Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, punto 8).
+- *(Pendiente)* Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, punto 7).
 - Control de capacidad de nodos (Congestionado, mayor tiempo de recorrido).
 - *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
 - *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
@@ -217,7 +218,7 @@ Proyecto_Algoritmica_II/
 Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. Es Java Swing, sin dependencias externas.
 
 Qué hay hoy (por integrante):
-- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora y la cola las salidas; `Pila` no se usa aún en la simulación; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
+- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora, la cola las salidas y la pila el botón "Deshacer" (Ctrl+Z) del editor, que revierte pintar, borrar, bloquear, agregar un piso o cargar un plano; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
 - **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas; importación de planos `.json`, `.xml` y `.txt` con validación que informa todos los errores.
 - **Integrante 3:** jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
@@ -239,8 +240,7 @@ Lo que todavía falta para cumplir el documento por completo:
 4. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy se hace importando un plano o por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
 5. **Exportar los reportes individuales al terminar (RN-14).** Hoy se exportan con un botón; deben generarse automáticamente cuando termina la simulación, haya evacuado o no cada persona. *(Integrante 1)*
 6. **Capacidad de las conexiones (RN-03).** Se valida y se guarda, pero la simulación solo controla la capacidad por nodo. Hacer que también limite cuántas personas cruzan una conexión a la vez. *(Integrante 3 con Integrante 2)*
-7. **Usar `Pila`.** `Cola` ya se usa: guarda a las personas que salen del edificio y de ella sale `datos/salidas.csv`. `Pila` está implementada y probada, pero la simulación todavía no la usa. *(Integrante 1)*
-8. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
+7. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
    - **Terremoto:** colapsa pasillos y escaleras al azar, con réplicas; mucho estrés al inicio; las personas se mueven más lento.
    - **Incendio:** empieza en un nodo y se propaga a los vecinos cada cierto número de pasos; bloquea los nodos quemados; el estrés sube por cercanía al fuego.
    - **Inundación:** el agua sube desde el piso 1 y bloquea los nodos de los pisos bajos poco a poco; empuja a la gente hacia arriba.

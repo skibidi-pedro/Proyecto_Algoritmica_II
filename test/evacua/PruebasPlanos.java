@@ -94,6 +94,22 @@ public class PruebasPlanos {
         e.eliminarNodo(0, 1);
         chk(e.conexiones.isEmpty() && BuscadorRutas.buscar(e, 0, 0, e.salidas(), true).ruta == null, "eliminarNodo quita conexiones");
 
+        // Deshacer con pila (HistorialEdicion)
+        HistorialEdicion h = new HistorialEdicion();
+        Edificio ed = new Edificio(3, 3);
+        ed.crearNodo(TipoNodo.HABITACION, 0, 0, null);
+        h.guardar(ed);
+        ed.crearNodo(TipoNodo.SALIDA, 0, 2, null);
+        h.guardar(ed);
+        ed.eliminarNodo(0, 0);
+        Edificio u1 = h.deshacer();
+        chk(u1.n[0][0].tipo == TipoNodo.HABITACION && u1.n[0][2].tipo == TipoNodo.SALIDA, "deshacer 1: vuelve el nodo borrado");
+        Edificio u2 = h.deshacer();
+        chk(u2.n[0][0].tipo == TipoNodo.HABITACION && u2.n[0][2].tipo == TipoNodo.VACIO, "deshacer 2: vuelve a antes de crear la salida");
+        chk(h.deshacer() == null && !h.puedeDeshacer(), "sin mas cambios que deshacer");
+        u2.n[0][1].tipo = TipoNodo.PASILLO;
+        chk(u1.n[0][1].tipo == TipoNodo.VACIO, "las copias del historial son independientes");
+
         // Simulacion sobre plano importado
         Edificio s = leer("edificio_ids.xml");
         MotorSimulacion m = new MotorSimulacion(s, new ParametrosSimulacion(), t -> { });
