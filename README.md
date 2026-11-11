@@ -155,7 +155,7 @@ Proyecto_Algoritmica_II/
 
 | Integrante | Rol | Paquetes en `src/evacua/` | Reglas |
 |---|---|---|---|
-| 1 | Núcleo, persistencia, reportes e integración | `Main`, `estructuras`, `persistencia`, `reportes` | RN-01, RN-10, RN-14 |
+| 1 | Núcleo, persistencia (guardar y leer el plano `.txt`), reportes e integración | `Main`, `estructuras`, `persistencia`, `reportes` | RN-01, RN-10, RN-14 |
 | 2 | Edificio, rutas e interfaz | `edificio`, `rutas`, `vista`, `recursos/planos` | RN-02 a RN-07, RN-16, RN-19 |
 | 3 | Personas, comportamiento y motor de simulación | `personas`, `simulacion` | RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18, RN-20 |
 
@@ -168,8 +168,7 @@ Proyecto_Algoritmica_II/
 | Integrante 3 | `Persona` (`bitacora`, `historial`, `estres`) | `reportes.ReporteSimulacion` y `ExportadorIndividual` (Integrante 1) |
 | Integrante 3 | `MotorSimulacion` (tiempos, evacuadas, cuellos de botella) | `reportes.*` (Integrante 1) y `vista.*` (Integrante 2) |
 | Integrante 3 | `EventoAleatorio` (bloquea un pasillo) | `MotorSimulacion` y su recálculo (Integrante 2) |
-| Integrante 2 | `GestorEscenarios.leer(...)` y `deTexto(...)` | `persistencia.GestorEscenarios` y `BaseDatos` (Integrante 1) |
-| Integrante 1 | `BaseDatos`, `GestorEscenarios` | `vista.VentanaPrincipal` (Integrante 2) y `Main` |
+| Integrante 1 | `GestorEscenarios` (`leer`, `deTexto`, `guardar`, `validarParaGuardar`) y `BaseDatos` | `vista.VentanaPrincipal` (Integrante 2) y `Main`; el `.txt` leído se convierte en un `edificio.Edificio` (Integrante 2) |
 
 ### 6.4 Tareas por integrante
 
@@ -177,8 +176,9 @@ Proyecto_Algoritmica_II/
 *Paquetes:* `Main`, `estructuras`, `persistencia`, `reportes`
 
 - Estructuras base: listas simple/doble, pila, cola, heap.
-- Menú principal, clase `Main` y comunicación entre módulos (importar plano, exportar reportes individuales, comparar escenarios).
-- Registro, guardado y carga de escenarios en base de datos.
+- Clase `Main` y comunicación entre módulos (cargar y guardar escenarios, exportar reportes individuales y salidas, comparar escenarios).
+- Guardar y leer el plano `.txt` (`GestorEscenarios.aTexto` / `deTexto`), rechazando los archivos inválidos con un mensaje y sin cambiar el edificio actual. Esta tarea era del Integrante 2 cuando existía la importación de planos; al eliminarse `.json`/`.xml`, quedó aquí.
+- Registro, guardado y carga de escenarios en la base de datos embebida (`.txt`) y tabla de resultados `.csv`.
 - Exportación individual por persona (usa la bitácora e historial del Integrante 3).
 - Comparación de resultados entre escenarios guardados.
 - *(Reasignado)* Reportes y estadísticas de cada simulación: tiempo total, tiempo promedio, evacuados/no evacuados y nodos más congestionados (usa los resultados del motor del Integrante 3).
@@ -191,7 +191,8 @@ Proyecto_Algoritmica_II/
 - Gestión de bloqueos (marcar/desbloquear) y su exclusión del cálculo de rutas.
 - Dijkstra y A\* con comparación de nodos explorados y tiempo.
 - Recálculo dinámico desde la posición actual, expuesto como operación reutilizable para el motor de simulación.
-- Plano de prueba `recursos/planos/edificio.txt`.
+- Plano de prueba `recursos/planos/edificio.txt` (3 pisos, 9 personas).
+- Pila de "Deshacer" del editor (`HistorialEdicion`) y selector de pisos.
 - *(Reasignado)* Interfaz Swing: dibuja edificio, personas y rutas en tiempo real (aprovecha las coordenadas x, y de los nodos).
 - *(Reasignado)* Acumulación de ocupación por nodo y mapa de calor en Swing al finalizar la simulación (RN-19).
 
