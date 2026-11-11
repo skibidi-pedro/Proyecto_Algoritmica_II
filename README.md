@@ -247,39 +247,172 @@ GestorEscenarios.aTexto / aJson ──► BaseDatos ──► ComparadorEscenari
 
 #### Integrante 1: núcleo, persistencia y reportes
 
-- **Estructuras propias** (`estructuras/`): `ListaSimple`, `ListaDoble`, `Pila`, `Cola` y `ColaPrioridad` (heap). Quién las usa: el heap en `AlgoritmoRuta` (rutas), la lista doble en `Bitacora`, la cola en `MotorSimulacion.salidas` y la pila en `HistorialEdicion` (botón Deshacer).
-- **Escenarios en archivo** (`GestorEscenarios`):
-  - `aTexto(edificio, conPersonas)` escribe el `.txt`: un bloque de filas por piso, con una línea `#PISO n` entre pisos, y al final `#PERSONAS`. La letra va en minúscula si el nodo está bloqueado.
-  - `aJson(edificio)` escribe el `.json` completo con pisos, nodos, conexiones, bloqueos y personas.
-  - `leer(archivo)` lee cualquiera de los tres formatos; `guardar(archivo, edificio)` escribe `.json` si el nombre termina en `.json` y `.txt` en cualquier otro caso.
-  - `validarParaGuardar` aplica RN-10: al menos una salida y toda persona sobre un nodo válido. Si falla, no se escribe nada.
-- **Base de datos embebida** (`BaseDatos`): guarda cada escenario como `datos/escenarios/<nombre>.json` y lo carga, lista o elimina. Rechaza nombres con rutas (por ejemplo `../x`). Agrega filas a `datos/resultados.csv` y crea la cabecera si el archivo no existe.
-- **Comparación** (`ComparadorEscenarios`): `simular` corre una copia del edificio hasta el final con los mismos parámetros y devuelve una fila resumen. `compararGuardados` hace lo mismo con escenarios de la base de datos y agrega cada fila a `resultados.csv`.
-- **Salidas a CSV** (`ExportadorSalidas`): `MotorSimulacion` encola un `RegistroSalida` cada vez que alguien sale. `exportar` recorre la cola en orden, escribe una fila por persona y deja la cola intacta, así que se puede exportar varias veces.
-- **Reportes** (`ReporteSimulacion`, `ExportadorIndividual`): el reporte general se muestra en un diálogo. El individual incluye la bitácora de nodos visitados, la línea de tiempo y los contadores del historial. `exportarTodos` crea un archivo `reporte_P<id>.txt` por persona.
-- **`Main`**: abre `VentanaPrincipal`.
+Responsable de todo lo que **guarda o saca datos** del programa y de las estructuras propias sobre las que se apoya el resto.
+
+**1. Estructuras propias (`estructuras/`)**
+
+| Clase | Idea | Dónde se usa |
+|---|---|---|
+| `ListaSimple<T>` | Nodos enlazados hacia adelante: `agregarInicio`, `agregarFinal`, `obtener`, `quitarInicio`, `eliminar`, `contiene` | Disponible como estructura de apoyo (se prueba en `PruebasEstructuras`; hoy no la usa otra clase) |
+| `ListaDoble<T>` | Enlaces a ambos lados: `agregarInicio/Final`, `primero`, `ultimo`, `quitarInicio/Final`, `alReves()` | `Bitacora` de cada persona (se recorre de inicio a fin o al revés) |
+| `Pila<T>` | LIFO: `apilar`, `desapilar`, `cima` | `HistorialEdicion`: cada cambio guarda una copia del edificio y **Deshacer** la desapila |
+| `Cola<T>` | FIFO, implementa `Iterable`: `encolar`, `desencolar`, `frente`, `tamano` | `MotorSimulacion.salidas`: cada persona que sale se encola, y de ahí sale el CSV en orden de salida |
+| `ColaPrioridad<T>` | Heap binario con comparador (`subir`/`bajar`): `agregar`, `sacar`, `ver` | `AlgoritmoRuta` (Dijkstra y A*) |
+
+Ninguna usa `java.util`. Se prueban en `test/evacua/PruebasEstructuras.java`.
+
+**2. Guardar y cargar escenarios en archivo (`persistencia/GestorEscenarios`)**
+
+- `aTexto(edificio, conPersonas)`: genera el `.txt`. Escribe un bloque de filas por piso (una letra por nodo: `H` habitación, `P` pasillo, `E` escalera, `S` salida, `.` vacío), una línea `#PISO n` entre pisos y, si `conPersonas`, una sección `#PERSONAS` con una línea por persona (`piso fila col TIPO SALUD`). Una letra **en minúscula** significa nodo bloqueado.
+- `aJson(edificio)`: genera el `.json` con `filas`, `columnas`, `pisos`, `modo` (`cuadricula` o `grafo`), la lista de `nodos` (id, tipo, piso, x, y, bloqueado), las `conexiones` (origen, destino, tiempo, capacidad, bloqueada) y las `personas`. Es el formato que vuelve a leer `ParserJson`.
+- `guardar(archivo, edificio)`: escribe `.json` si el nombre termina en `.json`; en cualquier otro caso escribe `.txt`.
+- `leer(archivo)`: lee el archivo como texto UTF-8 y se lo pasa a `ParserPlano.leer(contenido, nombre)` (Integrante 2), que elige el parser por la extensión. Si algo falla lanza `IllegalArgumentException` con el motivo y el edificio actual no cambia.
+- `validarParaGuardar(edificio)` (RN-10): devuelve la lista de errores (falta una salida, o una persona no está en un nodo válido). Si no está vacía, no se escribe nada.
+
+**3. Base de datos de escenarios (`persistencia/BaseDatos`)**
+
+No usa SQL ni servidor: son archivos dentro de la carpeta `datos/` (que está en `.gitignore`).
+
+| Método | Qué hace con los archivos |
+|---|---|
+| `guardar(nombre, edificio)` | Valida con `validarParaGuardar` y escribe `datos/escenarios/<nombre>.json` (crea la carpeta si no existe) |
+| `cargar(nombre)` | Lee ese `.json` con `ParserPlano.leer`; si no existe lanza un error claro |
+| `listar()` | Lista los `*.json` de `datos/escenarios/` sin la extensión y en orden alfabético |
+| `eliminar(nombre)` | Borra el `.json` |
+| `registrarResultado(linea)` | Agrega una línea a `datos/resultados.csv`; si el archivo no existe, escribe antes la cabecera |
+| `resultados()` | Devuelve las líneas de `datos/resultados.csv` |
+
+El nombre del escenario solo admite letras, números, espacio, punto y guion (hasta 60 caracteres), así que un nombre como `../x` se rechaza y nunca se escribe fuera de `datos/`.
+
+**4. Comparar escenarios (`reportes/ComparadorEscenarios`)**
+
+- `simular(nombre, edificio, params)`: crea un `MotorSimulacion` sobre `edificio.copia()` (el original no cambia) con `params.copia()`, llama a `iniciar()` y repite `paso()` hasta que termina. Devuelve una `Fila` con algoritmo, semilla, personas, evacuadas, ticks, tiempo promedio y estrés promedio.
+- `compararGuardados(bd, nombres, params)`: por cada nombre hace `bd.cargar` → `simular` → `bd.registrarResultado(fila.aCsv())`. Así cada comparación queda guardada.
+- `aTexto(filas)`: arma la tabla que se muestra en pantalla.
+
+Ejemplo (valores ilustrativos) de `datos/resultados.csv`:
+
+```csv
+escenario,algoritmo,semilla,personas,evacuadas,ticks,tiempo_promedio,estres_promedio
+simple,A*,42,9,9,41,22.33,1.80
+ids,A*,42,5,5,17,10.20,0.40
+```
+
+**5. Cola de salidas → `salidas.csv` (`reportes/ExportadorSalidas`)**
+
+- El motor (Integrante 3) crea un `RegistroSalida` inmutable (orden, id, tipo, salud, tiempo, estrés, asistida, pasos, recálculos) y lo encola cuando alguien llega a una salida.
+- `exportar(motor, archivo)` desencola cada registro, escribe su línea y **lo vuelve a encolar**, de modo que la cola queda igual y se puede exportar varias veces. Crea la carpeta destino si hace falta.
+- Se llama de dos formas: automáticamente al terminar la simulación (`motor.alTerminar` → `VentanaPrincipal.guardarSalidasCsv` → `datos/salidas.csv`) y con el botón "Exportar salidas (CSV)" donde el usuario elija.
+
+Ejemplo (valores ilustrativos) de `datos/salidas.csv`:
+
+```csv
+orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos
+1,3,ADULTO,SANO,9,0.0,false,9,1
+2,1,NINO,SANO,14,1.2,false,11,0
+3,5,MOVILIDAD,HERIDO,31,3.5,true,18,2
+```
+
+La columna `orden_salida` sale de la posición en la cola; `tiempo_salida` es el tick en que cruzó la salida.
+
+**6. Reportes (`reportes/ReporteSimulacion`, `ExportadorIndividual`)**
+
+- `ReporteSimulacion.general(motor)`: texto con algoritmo, semilla, ticks, personas evacuadas y no evacuadas, tiempo y estrés promedio, nodos explorados, los **3 nodos con más esperas** (cuellos de botella, de `Nodo.esperas`) y una línea por persona.
+- `ReporteSimulacion.individual(persona)`: estado final, contadores (`pasos` y los de `HistorialEventos`), la **bitácora** recorrida de inicio a fin (`RegistroBitacora`: paso, nodo, estado del nodo) y la **línea de tiempo** (`persona.hist`, con eventos como "ruta bloqueada", "congestión", "EVACUADA").
+- `ExportadorIndividual.exportar(persona, archivo)` escribe ese texto; `exportarTodos(motor, carpeta)` crea un `reporte_P<id>.txt` por persona, haya evacuado o no.
+
+**7. `Main`**: arranca la aplicación con `VentanaPrincipal`.
 
 #### Integrante 2: edificio, rutas, importación e interfaz
 
-- **Edificio** (`edificio/`): `Edificio` guarda los nodos en una cuadrícula con varios pisos apilados (el piso k ocupa las filas `k*filasPorPiso` a `(k+1)*filasPorPiso`). Tiene crear, modificar y eliminar nodos, conectar, desconectar y bloquear (nodos y conexiones), y `copia()` para simular sin alterar el original. `Grafo.desde(edificio)` arma las aristas: vecinos de la cuadrícula (escalera = tiempo 3), las escaleras de la misma fila y columna entre pisos consecutivos, y las `Conexion` explícitas del plano. `HistorialEdicion` es la pila del botón Deshacer.
-- **Rutas** (`rutas/`): `AlgoritmoRuta` hace la búsqueda con el heap, excluyendo nodos y conexiones bloqueados. `Dijkstra` usa heurística 0 y `AEstrella` usa `Heuristica` (Manhattan por piso, convertida a tiempo para no sobreestimar). `RecalculadorRutas.desdePosicion` rehace la ruta desde donde está la persona, y `evitandoCongestion` lo hace rodeando los nodos llenos.
-- **Importación** (`importacion/`): `ParserPlano.leer(contenido, nombre)` elige por extensión.
-  - `.txt`: `deTexto` lee los bloques de filas por piso y las líneas de personas (`fila columna TIPO SALUD`, o `piso fila columna TIPO SALUD` con varios pisos).
-  - `.json` y `.xml`: `ParserJson` y `ParserXml` leen a un `PlanoDatos` sin validar. `ValidadorPlano.validar` devuelve **todos** los errores: ids repetidos, tipos o coordenadas inválidos, celdas ocupadas, conexiones a nodos inexistentes, tiempo menor o igual a cero, falta de capacidad y falta de salida. Si hay errores, `ConstructorEdificio` lanza una excepción con la lista completa y no construye nada. Si no los hay, construye el `Edificio`.
-  - En el `.json`, `"modo": "cuadricula"` usa los vecinos de la cuadrícula y `"modo": "grafo"` usa solo las conexiones listadas.
-- **Interfaz** (`vista/`): `VentanaPrincipal` tiene los botones y lee o escribe archivos a través de `GestorEscenarios`, `BaseDatos` y los exportadores. `PanelEdificio` dibuja un piso a la vez, con personas, bloqueos y el mapa de calor. El selector de pisos y la lista "Salieron" están a la derecha. Un clic de la herramienta activa guarda antes una copia en la pila de Deshacer.
+Responsable del **modelo del edificio**, de **encontrar caminos**, de **leer y validar planos** y de lo que el usuario ve y toca.
+
+**1. Modelo del edificio (`edificio/`)**
+
+- `Edificio` guarda una matriz `n[filas][cols]` de `Nodo` (tipo, bloqueado, `ocupacion`, `visitas`, `esperas`). Los pisos van apilados: el piso k ocupa las filas `k*filasPorPiso` a `(k+1)*filasPorPiso - 1` (`piso(f)` devuelve el número de piso de una fila). El id de un nodo es `fila * cols + col`.
+- Edición: `crearNodo`, `modificarNodo`, `eliminarNodo`, `bloquear(f, c, valor)`, `rect` (pinta un rectángulo), `agregar` (una persona), y para conexiones explícitas `conectar`, `desconectar`, `bloquearConexion`. `copia()` duplica todo para simular sin tocar el original; `copiaConPisos(n)` lo hace con más pisos (botón "+ Agregar piso").
+- `Grafo.desde(edificio)` arma la lista de adyacencia `ady[]` con `Arista` (destino, tiempo, capacidad):
+  - **Modo cuadrícula** (por defecto): vecinos arriba, abajo, izquierda y derecha dentro del mismo piso, con tiempo 1 (3 si el destino es escalera). Las escaleras unen la misma fila y columna de pisos consecutivos, con tiempo 3.
+  - **Modo grafo** (`conexionesExplicitas`): solo cuentan las `Conexion` del plano. Cada una es bidireccional, con tiempo y capacidad.
+  - Los bloqueos no se copian al grafo: se leen en vivo (`Nodo.bloqueado`, `Arista.bloqueada()`), así un bloqueo nuevo se nota sin reconstruirlo.
+  - `factorTiempo` es el menor tiempo por unidad de distancia del grafo; lo usa A* para no sobreestimar.
+- `HistorialEdicion` (sobre `Pila`): `guardar(actual)` antes de cada cambio, `deshacer()` devuelve el edificio anterior y `puedeDeshacer()`.
+
+**2. Rutas (`rutas/`)**
+
+- `AlgoritmoRuta.buscar(edificio, grafo, filaIni, colIni, metas[, evitar])`: es el algoritmo común. Usa la cola de prioridad con `f = costo acumulado + h`, ignora aristas bloqueadas, nodos no caminables y los que cumpla el predicado `evitar`, y se detiene al sacar el primer nodo que es meta. Devuelve un `ResultadoRuta` con `ruta` (lista de nodos; `null` si no hay camino), `costo`, `explorados` y `nanos` (tiempo de cálculo).
+- `Dijkstra`: `h = 0`. `AEstrella`: `h = Heuristica.aTiempo(...)`, es decir, distancia Manhattan en el piso más la diferencia de pisos, multiplicada por `factorTiempo` (admisible, RN-16). Por eso ambos dan el mismo costo, pero A* explora menos nodos.
+- `BuscadorRutas.buscar(..., astar)`: construye el `Grafo` y elige el algoritmo. `RecalculadorRutas.desdePosicion` busca desde donde está la persona ahora (RN-07), y `evitandoCongestion` pasa un `evitar` que descarta los nodos llenos (salvo las salidas).
+
+**3. Importación y validación de planos (`importacion/`)**
+
+Flujo: `ParserPlano.leer(contenido, nombre)` → según la extensión:
+
+- **`.txt`**: `deTexto` separa los pisos por las líneas `#PISO`, lee cada carácter con `TipoNodo.de` (minúscula = bloqueado) y lee `#PERSONAS`. Con un solo piso la línea de persona es `fila col TIPO SALUD`; con varios es `piso fila col TIPO SALUD`.
+- **`.json`**: `JsonMini` (analizador propio, sin librerías) → `ParserJson.parse` → `PlanoDatos`.
+- **`.xml`**: `ParserXml.parse` (DOM de la librería estándar) → `PlanoDatos`.
+
+Los parsers no validan: solo llenan `PlanoDatos`. Luego `ValidadorPlano.validar(plano)` (RN-15) recorre todo y devuelve **todos** los errores a la vez: plano sin nodos, id faltante o repetido, tipo inválido, coordenadas inválidas o fuera del tamaño declarado, dos nodos en la misma celda, piso inválido, falta de salida, conexión con origen o destino inexistente, a sí mismo, con tiempo ≤ 0 o sin capacidad ≥ 1, y personas con nodo, tipo o salud inválidos. Si la lista no está vacía, `ConstructorEdificio.construir` lanza `IllegalArgumentException` con todos los mensajes y **no cambia nada**; si está vacía, construye el `Edificio`. `recursos/planos/edificio_error.json` está hecho a propósito para probar esto.
+
+**4. Interfaz (`vista/`)**
+
+- `VentanaPrincipal` (título "EVACUA") agrupa los botones por tarea y es el único que toca archivos y diálogos:
+
+| Botón | Código que llama | Datos |
+|---|---|---|
+| Cargar / Guardar escenario | `GestorEscenarios.leer` / `guardar` | `.txt` |
+| Importar plano del edificio | `GestorEscenarios.leer` | `.json`, `.xml` o `.txt` (muestra los errores si es inválido) |
+| Guardar / Cargar de base de datos | `BaseDatos.guardar` / `cargar` | `datos/escenarios/*.json` |
+| Comparar escenarios guardados | `ComparadorEscenarios.compararGuardados` | `datos/resultados.csv` |
+| Iniciar emergencia | crea `MotorSimulacion` y un `Timer` que llama a `paso()` | edificio en memoria |
+| Exportar salidas (CSV), reportes | `ExportadorSalidas`, `ExportadorIndividual` | `.csv`, `reporte_P<id>.txt` |
+
+- `PanelEdificio` dibuja **un piso a la vez** (el que elige el selector de pisos). Cada herramienta (`Herramienta`) actúa al hacer clic o arrastrar; antes de cada cambio la ventana llama a `historial.guardar(mapa)`, y Deshacer solo funciona en modo edición.
+- **Mapa de calor**: mientras corre la simulación pinta `ocupacion / capacidad` de cada nodo en ese tick, así que una casilla se apaga cuando la persona se va. Al terminar pinta `visitas` acumuladas, normalizadas por el máximo.
+- La lista **"Salieron (n)"** se arma leyendo `motor.salidas` (la misma cola del CSV).
+- Cuando se bloquea un nodo con la simulación en marcha, la ventana llama a `motor.alBloquear(f, c)`; por eso no existe un botón "Recalcular ruta".
 
 #### Integrante 3: personas, comportamiento y simulación
 
-- **Personas** (`personas/`): `Persona` es la clase base y `Adulto`, `Nino`, `MovilidadReducida` y `PersonalRescate` la extienden (`Persona.crear` elige la clase según el tipo). Cada `Persona` lleva su `Bitacora` (lista doble de `RegistroBitacora`: paso, nodo y estado del nodo, que solo se agrega), su `HistorialEventos` (bloqueos sufridos, recálculos y espera en cuellos de botella) y su estrés de 0 a 100 (`NivelEstres`). `PersonalRescate.elegirObjetivo` va primero a incapacitados y luego a niños o movilidad reducida.
-- **Motor** (`MotorSimulacion.paso()`, una vez por tick):
-  1. Sube el contador de ticks y, con la probabilidad configurada, genera un evento aleatorio (`EventoAleatorio` colapsa un pasillo) y recalcula las rutas.
-  2. Recalcula la ocupación de cada nodo (`ControlCapacidad` marca Congestionado si está lleno).
-  3. Mueve a cada persona según su velocidad, su salud y su estrés. Si el siguiente nodo está bloqueado recalcula; si está lleno espera los ticks configurados y luego rodea la congestión.
-  4. Registra en la bitácora cada nodo visitado y, si alguien sale, lo encola en `salidas`.
-  5. Acumula las visitas por nodo (mapa de calor acumulado). Al terminar llama a `alTerminar`, que guarda `datos/salidas.csv`.
-- **Datos que consume y produce:** recibe las personas y los bloqueos que vienen del plano `.txt`, `.json` o `.xml`. Produce la bitácora y el historial (que salen en `reporte_P<id>.txt`) y la cola de salidas (que sale en `salidas.csv`).
-- **Parámetros** (`ParametrosSimulacion`): probabilidad de evento, semilla, tiempo límite, umbral de estrés, capacidad por nodo, algoritmo y ticks de espera antes de rodear una congestión.
+Responsable de **quién** se evacua, **cómo se comporta** y del **bucle de simulación** que produce los datos que luego exportan los otros dos.
+
+**1. Personas (`personas/`)**
+
+- `Persona` (abstracta) tiene posición `(f, c)`, `salud`, `estres` (0–100, con `aumentarEstres` y `reducirEstres` limitados por `NivelEstres.limitar`), `ruta` (lista de nodos que le faltan), `objetivo`, `acum` (movimiento acumulado), `esperando`, `pasos`, `evacuada`/`tEvac`/`asistida`, `hist` (línea de tiempo en texto), `bitacora` y `historial`. `Persona.crear` devuelve `Adulto`, `Nino`, `MovilidadReducida` o `PersonalRescate` según `TipoPersona`.
+- Velocidad base por tipo: Adulto 1.0, Niño 0.8, Movilidad reducida 0.5, Rescate 1.2. Se multiplica por la de la salud: Sano 1.0, Enfermo 0.8, Herido 0.6, Incapacitado 0.
+- `Bitacora` (sobre `ListaDoble`): `registrar(paso, fila, col, estadoNodo)` solo agrega, `reiniciar()` se usa al iniciar una simulación nueva. `RegistroBitacora` es inmutable. `HistorialEventos` cuenta `bloqueosSufridos`, `recalculos` y `esperaCuelloBotella` (RN-13).
+- `PersonalRescate.elegirObjetivo(todas)` (RN-17): busca la persona **incapacitada** más cercana (distancia Manhattan) que no esté evacuada ni asistida; si no hay, la persona prioritaria más cercana (niño, movilidad reducida o incapacitado). Cuando la alcanza, `MotorSimulacion.chequearRescate` marca `asistida = true` y recalcula las rutas de ambos. Una persona incapacitada no se mueve hasta que la asisten (entonces avanza a 0.5).
+
+**2. Parámetros y reglas de capacidad (`simulacion/`)**
+
+- `ParametrosSimulacion`: `prob` de evento por tick (0.03), `semilla` (42), `limite` de ticks (300), `umbral` de estrés (8), `capacidad` por nodo (2), `astar` (true) y `esperaRecalculo` (2 ticks). Los valores por defecto son esos y se cambian con el botón "Configurar parámetros". `copia()` sirve para comparar sin alterar los originales.
+- `ControlCapacidad.estado(nodo, capacidad)` devuelve `BLOQUEADO`, `CONGESTIONADO` (si `ocupacion >= capacidad`) o `LIBRE`; ese estado es el que se escribe en la bitácora (RN-08).
+- `EventoAleatorio.colapsarPasillo(edificio, random)` (RN-18): elige al azar un pasillo libre y lo bloquea. Usa el `Random` del motor con la semilla, por eso el mismo escenario con la misma semilla da el mismo resultado.
+
+**3. Qué hace `MotorSimulacion.paso()` en cada tick**
+
+Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, estrés y la cola `salidas`), registra la posición de partida en la bitácora y calcula la primera ruta de cada uno con `asignarRuta`. Después, en cada `paso()`:
+
+1. `tick++`. Con probabilidad `prob` llama a `generarEvento()`: colapsa un pasillo, cuenta con `contarBloqueo` a quién le afecta (el nodo está en su `ruta`) y llama a `recalcularTodas()`.
+2. Pone `ocupacion = 0` en todos los nodos y la recuenta con las personas que siguen dentro. Esa ocupación es la que lee el mapa de calor en vivo.
+3. Para cada persona no evacuada calcula la velocidad: `tipo.vel × salud.vel`; si el estrés supera el umbral, ×0.6. Si hay un nodo bloqueado al lado, el estrés sube 0.1. Si la velocidad es 0, el estrés sube 0.3 y se pasa a la siguiente.
+4. Suma la velocidad a `acum`; por cada unidad completa intenta dar un paso:
+   - **Ruta vacía** → `asignarRuta` otra vez; si sigue vacía, el estrés sube 0.5.
+   - **Siguiente nodo bloqueado** → recalcula desde donde está (`bloqueosSufridos++`, `recalculos++`).
+   - **Siguiente nodo lleno** (y no es salida) → espera: estrés +1, `Nodo.esperas++`, `esperaCuelloBotella++`. Si lleva `esperaRecalculo` ticks esperando, `rodearCongestion` busca otra ruta que evite los nodos llenos (una vez por espera). Si no hay otra, sigue esperando.
+   - **Si no, avanza**: actualiza `(f, c)`, quita el nodo de la ruta, `pasos++`, escribe en `hist` y en la bitácora (`ControlCapacidad.estado`) y baja el estrés 0.2 si se movió.
+   - Si el nodo es **salida** y no tiene objetivo de rescate, marca `evacuada`, guarda `tEvac` y hace `salidas.encolar(new RegistroSalida(...))`.
+5. Suma 1 a `visitas` de la casilla de cada persona que sigue dentro (o que acaba de salir). Esa es la ocupación acumulada del mapa de calor final.
+6. Si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv`.
+
+**4. Cómo se conecta con los datos**
+
+| Dato | Entra o sale | Dónde |
+|---|---|---|
+| Personas, tipo y salud iniciales, bloqueos | **Entra** del `.txt`/`.json`/`.xml` (ya validado por el Integrante 2) | `Edificio.personas`, `Nodo.bloqueado` |
+| `RegistroSalida` | **Sale** a la cola `salidas` y luego a `salidas.csv` | `MotorSimulacion` → `ExportadorSalidas` |
+| Bitácora, `hist` e historial | **Salen** a `reporte_P<id>.txt` | `Persona` → `ReporteSimulacion.individual` |
+| `Nodo.esperas`, `exploradosTotal`, `evacuadas()`, `promedioEvac()`, `promedioEstres()` | **Salen** al reporte general y a `resultados.csv` | `ReporteSimulacion.general`, `ComparadorEscenarios.simular` |
 
 ## 7. Estado actual del repositorio
 
