@@ -2,7 +2,7 @@ package evacua;
 
 import evacua.edificio.Edificio;
 import evacua.estructuras.Cola;
-import evacua.importacion.ParserPlano;
+import evacua.persistencia.GestorEscenarios;
 import evacua.personas.Persona;
 import evacua.simulacion.*;
 
@@ -20,7 +20,7 @@ public class PruebasCongestion {
     public static void main(String[] args) {
         // Camino corto por arriba (fila 0) tapado por una persona incapacitada; hay otro camino mas largo por abajo.
         String plano = ".PPP.\nHP.PS\n.P.P.\n.PPP.\n#PERSONAS\n1 0 ADULTO SANO\n0 2 ADULTO INCAPACITADO\n";
-        Edificio e = ParserPlano.deTexto(plano);
+        Edificio e = GestorEscenarios.deTexto(plano);
         ParametrosSimulacion p = new ParametrosSimulacion();
         p.capacidad = 1;
         p.prob = 0;
@@ -43,7 +43,7 @@ public class PruebasCongestion {
         chk(m.evacuadas() == 1 && m.salidas.tamano() == 1, "una sola salida en la cola");
 
         // Sin otro camino: espera y no se rompe
-        Edificio e2 = ParserPlano.deTexto("HPPS\n#PERSONAS\n0 0 ADULTO SANO\n0 2 ADULTO INCAPACITADO\n");
+        Edificio e2 = GestorEscenarios.deTexto("HPPS\n#PERSONAS\n0 0 ADULTO SANO\n0 2 ADULTO INCAPACITADO\n");
         ParametrosSimulacion p2 = new ParametrosSimulacion();
         p2.capacidad = 1;
         p2.prob = 0;

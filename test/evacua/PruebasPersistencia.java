@@ -1,7 +1,6 @@
 package evacua;
 
 import evacua.edificio.*;
-import evacua.importacion.ParserPlano;
 import evacua.persistencia.*;
 import evacua.reportes.*;
 import evacua.simulacion.*;
@@ -22,21 +21,35 @@ public class PruebasPersistencia {
     }
 
     static Edificio leer(String f) throws Exception {
-        return ParserPlano.leer(new String(Files.readAllBytes(Paths.get("recursos/planos/" + f))), f);
+        return GestorEscenarios.leer(new File("recursos/planos/" + f));
+    }
+
+    /** Escenario pequeno armado en codigo: una fila H-P-P-E-S con dos personas. */
+    static Edificio chico() {
+        Edificio e = new Edificio(3, 6);
+        e.crearNodo(TipoNodo.HABITACION, 1, 1, null);
+        e.crearNodo(TipoNodo.PASILLO, 1, 2, null);
+        e.crearNodo(TipoNodo.PASILLO, 1, 3, null);
+        e.crearNodo(TipoNodo.ESCALERA, 1, 4, null);
+        e.crearNodo(TipoNodo.SALIDA, 1, 5, null);
+        e.crearNodo(TipoNodo.HABITACION, 2, 2, null);
+        e.agregar(evacua.personas.TipoPersona.ADULTO, evacua.personas.EstadoSalud.SANO, 1, 1);
+        e.agregar(evacua.personas.TipoPersona.NINO, evacua.personas.EstadoSalud.SANO, 2, 2);
+        return e;
     }
 
     public static void main(String[] args) throws Exception {
         Path tmp = Files.createTempDirectory("evacua_bd");
         BaseDatos bd = new BaseDatos(tmp.toString());
-        Edificio grid = leer("edificio.txt"), grafo = leer("edificio_ids.json");
+        Edificio grid = leer("edificio.txt"), grafo = chico();
         grid.n[5][5].bloqueado = true;
         bd.guardar("texto", grid);
         bd.guardar("ids", grafo);
         chk(bd.listar().equals(Arrays.asList("ids", "texto")), "listar: " + bd.listar());
         Edificio d2 = bd.cargar("texto"), g2 = bd.cargar("ids");
         chk(GestorEscenarios.aTexto(d2, true).equals(GestorEscenarios.aTexto(grid, true)), "ida y vuelta del escenario cuadricula (bloqueos y personas)");
-        chk(!d2.conexionesExplicitas && g2.conexionesExplicitas && g2.conexiones.size() == 6 && g2.personas.size() == 2, "ida y vuelta del escenario con grafo");
-        chk(GestorEscenarios.aJson(g2).equals(GestorEscenarios.aJson(grafo)), "JSON estable tras guardar y cargar");
+        chk(GestorEscenarios.aTexto(g2, true).equals(GestorEscenarios.aTexto(grafo, true)) && g2.personas.size() == 2, "ida y vuelta del escenario pequeno");
+        chk(new File(tmp.toFile(), "escenarios/texto.txt").exists(), "el escenario se guarda como .txt");
 
         // RN-10
         Edificio sinSalida = new Edificio(2, 2);

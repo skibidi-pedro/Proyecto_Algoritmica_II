@@ -1,7 +1,6 @@
 package evacua;
 
 import evacua.edificio.*;
-import evacua.importacion.ParserPlano;
 import evacua.persistencia.GestorEscenarios;
 import evacua.personas.Persona;
 import evacua.rutas.*;
@@ -22,7 +21,7 @@ public class PruebasPisos {
     }
 
     static Edificio leer(String f) throws Exception {
-        return ParserPlano.leer(new String(Files.readAllBytes(Paths.get("recursos/planos/" + f))), f);
+        return GestorEscenarios.leer(new java.io.File("recursos/planos/" + f));
     }
 
     public static void main(String[] args) throws Exception {
@@ -58,11 +57,9 @@ public class PruebasPisos {
                 }
         chk(igual, "A* admisible entre pisos");
 
-        // Ida y vuelta en texto y en JSON
-        Edificio t2 = ParserPlano.deTexto(GestorEscenarios.aTexto(e, true));
+        // Ida y vuelta en texto
+        Edificio t2 = GestorEscenarios.deTexto(GestorEscenarios.aTexto(e, true));
         chk(GestorEscenarios.aTexto(t2, true).equals(GestorEscenarios.aTexto(e, true)) && t2.pisos == 3, "ida y vuelta .txt con pisos");
-        Edificio j2 = ParserPlano.leer(GestorEscenarios.aJson(e), "x.json");
-        chk(GestorEscenarios.aTexto(j2, true).equals(GestorEscenarios.aTexto(e, true)), "ida y vuelta .json con pisos");
 
         // Agregar un piso conserva todo
         Edificio e4 = e.copiaConPisos(4);

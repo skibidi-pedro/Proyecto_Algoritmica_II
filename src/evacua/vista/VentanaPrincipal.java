@@ -157,7 +157,6 @@ public class VentanaPrincipal extends JFrame {
         p.add(grupo("Escenarios y persistencia",
                 boton("Cargar escenario", "Lee un escenario .txt (plano + personas)", e -> cargarEscenario()),
                 boton("Guardar escenario", "Guarda plano, bloqueos y personas en un .txt", e -> guardarEscenario()),
-                boton("Importar plano del edificio", "Lee y valida un plano .json, .xml o .txt", e -> importarPlano()),
                 boton("Guardar en base de datos", "Guarda el escenario (RN-10) en la base de datos embebida", e -> guardarEnBD()),
                 boton("Cargar de base de datos", "Carga un escenario guardado", e -> cargarDeBD()),
                 boton("Comparar escenarios guardados", "Simula escenarios de la base de datos y compara resultados", e -> compararGuardados()),
@@ -532,25 +531,6 @@ public class VentanaPrincipal extends JFrame {
             log("Escenario guardado en " + f.getName() + ".");
         } catch (java.io.IOException ex) {
             JOptionPane.showMessageDialog(this, "No se pudo guardar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    void importarPlano() {
-        File f = elegirArchivo(true, null);
-        if (f == null) return;
-        try {
-            Edificio m = GestorEscenarios.leer(f);
-            m.personas.clear();
-            guardarParaDeshacer();
-            timer.stop();
-            motor = null;
-            mapa = m;
-            grid.ajustarTamano();
-            actualizarEstado();
-            log("Plano importado y validado: " + f.getName() + " (" + m.filas + "x" + m.cols + "). Grafo construido.");
-        } catch (IllegalArgumentException ex) {
-            log("Plano rechazado: " + ex.getMessage());
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Errores de validacion del plano", JOptionPane.ERROR_MESSAGE);
         }
     }
 

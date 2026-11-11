@@ -48,7 +48,7 @@ Integrantes:
 7. **Reportes y estadísticas.** Por simulación: tiempo total, tiempo promedio, evacuados/no evacuados, nodos más congestionados. Comparación entre escenarios del mismo edificio. Exportación de un reporte individual por persona con su línea de tiempo.
 8. **Visualización (Swing).** Edificio, personas y rutas en tiempo real; mapa de calor al terminar.
 9. **Trazabilidad y comportamiento de `Persona`.** Bitácora, estrés dinámico (0–100), historial de eventos (bloqueos sufridos, recálculos, tiempo de espera en cuellos de botella) y archivo individual con la línea de tiempo.
-10. **Importación de planos.** Parser Java para `.json`, `.txt` o `.xml` que valida el archivo y construye el grafo sin alterar el edificio actual si hay errores. Las coordenadas (x, y) sirven para la heurística de A* y para dibujar el plano.
+10. **Importación de planos (eliminada).** Se descartó leer planos en `.json` y `.xml`: era demasiado complejo para el alcance. Los edificios se guardan y se cargan solo como `.txt` (cuadrícula con pisos y personas), y esa lectura valida el formato y rechaza el archivo sin cambiar el edificio actual si hay errores.
 11. **Optimización y simulación estocástica.** Rescate prioriza niños y personas con movilidad reducida antes de evacuar; eventos aleatorios (colapso de pasillos) que fuerzan recálculo; acumulación de ocupación para el mapa de calor.
 12. **Tipos de desastre.** Al iniciar la emergencia se elige el tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo tiene su propia dinámica: qué zonas bloquea, cómo se propaga o evoluciona en el tiempo, cuánto estrés genera y si afecta la velocidad. Los eventos aleatorios del módulo 11 pasan a depender del desastre elegido.
 
@@ -72,7 +72,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-12 | Estrés | Valor 0–100; sube por congestión, recálculos y peligros; al superar un umbral configurable reduce velocidad o altera comportamiento. |
 | RN-13 | Historial de eventos | Contabiliza bloqueos sufridos, recálculos y tiempo total de espera en cuellos de botella. |
 | RN-14 | Exportación individual | Al terminar se genera un archivo por persona con su línea de tiempo, haya evacuado o vencido el tiempo. |
-| RN-15 | Importación de planos | El archivo define nodos (id único, tipo, x, y) y conexiones entre nodos existentes (peso > 0, capacidad máxima), con al menos una salida. Si es inválido se rechaza con mensaje de error y el edificio actual no cambia. |
+| RN-15 | Importación de planos (eliminada) | Ya no existe la importación de planos `.json`/`.xml` con nodos y conexiones. La lectura del `.txt` sigue rechazando los archivos inválidos con un mensaje y sin cambiar el edificio actual (ver RN-10 para el guardado). |
 | RN-16 | Búsqueda con A\* | La heurística se convierte a tiempo de recorrido para **no sobreestimar** el costo real (ruta óptima). Mismas exclusiones que RN-04 y RN-05. |
 | RN-17 | Personal de rescate | Va primero a nodos con niños o movilidad reducida y solo después a una salida, salvo que su ruta se bloquee o se agote el tiempo. |
 | RN-18 | Eventos aleatorios | En cada paso puede ocurrir un evento (p. ej. colapso de pasillo) con probabilidad configurable; el elemento pasa a Bloqueado y se aplica RN-07. Una **semilla configurable** permite repetir la secuencia. |
@@ -106,8 +106,8 @@ Proyecto_Algoritmica_II/
 │       │   ├── ListaSimple, ListaDoble, Pila, Cola
 │       │   └── ColaPrioridad.java            (heap)
 │       ├── persistencia/                     [Integrante 1]
-│       │   ├── BaseDatos.java                (base embebida: escenarios .json + resultados.csv)
-│       │   └── GestorEscenarios.java         (validar RN-10, guardar/cargar .txt/.json)
+│       │   ├── BaseDatos.java                (base embebida: escenarios .txt + resultados.csv)
+│       │   └── GestorEscenarios.java         (validar RN-10, guardar y leer el plano .txt)
 │       ├── reportes/                         [Integrante 1]
 │       │   ├── ReporteSimulacion.java        (reporte general e individual)
 │       │   ├── ComparadorEscenarios.java     (compara escenarios, registra resultados)
@@ -127,12 +127,6 @@ Proyecto_Algoritmica_II/
 │       │   ├── RecalculadorRutas.java        (RN-07)
 │       │   ├── BuscadorRutas.java            (fachada)
 │       │   └── ResultadoRuta.java            (ruta, nodos explorados, tiempo)
-│       ├── importacion/                      [Integrante 2]
-│       │   ├── ParserPlano.java              (elige parser por extension; .txt)
-│       │   ├── ParserJson.java, JsonMini.java, ParserXml.java
-│       │   ├── PlanoDatos.java               (datos leidos)
-│       │   ├── ValidadorPlano.java           (todos los errores, RN-15)
-│       │   └── ConstructorEdificio.java      (construye el grafo si es valido)
 │       ├── vista/                            [Integrante 2]
 │       │   ├── VentanaPrincipal.java         (Swing: botones, estado, registro)
 │       │   ├── PanelEdificio.java            (edificio, personas, rutas y mapa de calor)
@@ -150,7 +144,7 @@ Proyecto_Algoritmica_II/
 │           ├── EventoAleatorio.java          (colapso de pasillos, RN-18)
 │           ├── ControlCapacidad.java         (Congestionado, RN-08)
 │           └── ParametrosSimulacion.java
-├── recursos/planos/                          planos de ejemplo: edificio.txt, edificio_ids.json, edificio_ids.xml y edificio_error.json (inválido a propósito)
+├── recursos/planos/                          plano de ejemplo: edificio.txt (3 pisos, 9 personas)
 ├── test/evacua/                              PruebasEstructuras, PruebasPlanos, PruebasPersistencia, PruebasPisos, PruebasCongestion
 └── docs/                                     informe, diagrama de casos de uso
 ```
@@ -162,7 +156,7 @@ Proyecto_Algoritmica_II/
 | Integrante | Rol | Paquetes en `src/evacua/` | Reglas |
 |---|---|---|---|
 | 1 | Núcleo, persistencia, reportes e integración | `Main`, `estructuras`, `persistencia`, `reportes` | RN-01, RN-10, RN-14 |
-| 2 | Edificio, rutas, importación e interfaz | `edificio`, `rutas`, `importacion`, `vista`, `recursos/planos` | RN-02 a RN-07, RN-15, RN-16, RN-19 |
+| 2 | Edificio, rutas e interfaz | `edificio`, `rutas`, `vista`, `recursos/planos` | RN-02 a RN-07, RN-16, RN-19 |
 | 3 | Personas, comportamiento y motor de simulación | `personas`, `simulacion` | RN-08, RN-09, RN-11, RN-12, RN-13, RN-17, RN-18, RN-20 |
 
 ### 6.3 Puntos de contacto entre paquetes
@@ -174,7 +168,7 @@ Proyecto_Algoritmica_II/
 | Integrante 3 | `Persona` (`bitacora`, `historial`, `estres`) | `reportes.ReporteSimulacion` y `ExportadorIndividual` (Integrante 1) |
 | Integrante 3 | `MotorSimulacion` (tiempos, evacuadas, cuellos de botella) | `reportes.*` (Integrante 1) y `vista.*` (Integrante 2) |
 | Integrante 3 | `EventoAleatorio` (bloquea un pasillo) | `MotorSimulacion` y su recálculo (Integrante 2) |
-| Integrante 2 | `ParserPlano.leer(...)` | `persistencia.GestorEscenarios` y `BaseDatos` (Integrante 1) |
+| Integrante 2 | `GestorEscenarios.leer(...)` y `deTexto(...)` | `persistencia.GestorEscenarios` y `BaseDatos` (Integrante 1) |
 | Integrante 1 | `BaseDatos`, `GestorEscenarios` | `vista.VentanaPrincipal` (Integrante 2) y `Main` |
 
 ### 6.4 Tareas por integrante
@@ -190,14 +184,14 @@ Proyecto_Algoritmica_II/
 - *(Reasignado)* Reportes y estadísticas de cada simulación: tiempo total, tiempo promedio, evacuados/no evacuados y nodos más congestionados (usa los resultados del motor del Integrante 3).
 - Configuración del repositorio, integración completa y coordinación de entregas.
 
-**Integrante 2: Edificio, rutas, bloqueos e importación de planos** (RN-02, RN-03, RN-04, RN-05, RN-06, RN-07, RN-15, RN-16, RN-19)
-*Paquetes:* `edificio`, `rutas`, `importacion`, `vista`, `recursos/planos`
+**Integrante 2: Edificio, rutas, bloqueos e interfaz** (RN-02, RN-03, RN-04, RN-05, RN-06, RN-07, RN-16, RN-19)
+*Paquetes:* `edificio`, `rutas`, `vista`, `recursos/planos`
 
 - Grafo del edificio con CRUD de nodos, estados y capacidades.
 - Gestión de bloqueos (marcar/desbloquear) y su exclusión del cálculo de rutas.
 - Dijkstra y A\* con comparación de nodos explorados y tiempo.
 - Recálculo dinámico desde la posición actual, expuesto como operación reutilizable para el motor de simulación.
-- Parser de planos `.json`/`.txt`/`.xml` con validación, y archivos de plano de prueba.
+- Plano de prueba `recursos/planos/edificio.txt`.
 - *(Reasignado)* Interfaz Swing: dibuja edificio, personas y rutas en tiempo real (aprovecha las coordenadas x, y de los nodos).
 - *(Reasignado)* Acumulación de ocupación por nodo y mapa de calor en Swing al finalizar la simulación (RN-19).
 
@@ -221,9 +215,8 @@ Esta sección explica, por integrante, qué hace el código de cada funcionalida
 
 | Archivo | Formato | Quién lo escribe | Quién lo lee | Para qué |
 |---|---|---|---|---|
-| Plano o escenario (`recursos/planos/edificio.txt`) | `.txt` en cuadrícula, con pisos y personas | `GestorEscenarios.guardar` (botón "Guardar escenario") | `GestorEscenarios.leer` → `ParserPlano.leer` → `deTexto` | Edificio de cuadrícula: un carácter por nodo |
-| Plano con grafo (`edificio_ids.json`, `edificio_ids.xml`) | `.json` y `.xml` con nodos, conexiones y personas | `.json`: `GestorEscenarios.aJson` | `ParserJson` / `ParserXml` → `ValidadorPlano` → `ConstructorEdificio` | Edificio con conexiones de tiempo y capacidad |
-| Escenarios guardados (`datos/escenarios/<nombre>.json`) | `.json` | `BaseDatos.guardar` | `BaseDatos.cargar` y `listar` | Escenarios para repetir o comparar |
+| Plano o escenario (`recursos/planos/edificio.txt`) | `.txt` en cuadrícula, con pisos y personas | `GestorEscenarios.guardar` (botón "Guardar escenario") | `GestorEscenarios.leer` → `deTexto` (botón "Cargar escenario") | Edificio completo: un carácter por nodo, bloqueos y personas |
+| Escenarios guardados (`datos/escenarios/<nombre>.txt`) | `.txt` (el mismo formato) | `BaseDatos.guardar` | `BaseDatos.cargar` y `listar` | Escenarios para repetir o comparar |
 | Resultados (`datos/resultados.csv`) | CSV: `escenario,algoritmo,semilla,personas,evacuadas,ticks,tiempo_promedio,estres_promedio` | `BaseDatos.registrarResultado` (lo llama `ComparadorEscenarios.compararGuardados`) | `BaseDatos.resultados` | Historial de comparaciones |
 | Salidas (`datos/salidas.csv`) | CSV: `orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos` | `ExportadorSalidas.exportar` (solo al terminar la simulación, o con el botón "Exportar salidas (CSV)") | Excel o cualquier lector de CSV | Tiempo y estado de quienes salieron, en orden |
 | Reporte individual (`reporte_P<id>.txt`) | `.txt` con bitácora y línea de tiempo | `ExportadorIndividual.exportar` y `exportarTodos` | Personas | Trazabilidad de cada persona (RN-14) |
@@ -231,18 +224,17 @@ Esta sección explica, por integrante, qué hace el código de cada funcionalida
 Recorrido de los datos, de la entrada a la salida:
 
 ```
-archivo .txt / .json / .xml
-        │  ParserPlano.leer elige el parser por la extensión
+archivo .txt
+        │  GestorEscenarios.leer → deTexto (valida el formato)
         ▼
-PlanoDatos ── ValidadorPlano (RN-15) ── ConstructorEdificio ──► Edificio (grafo + personas)
-        │                                                         │ copia()
-        │                                                         ▼
-        │                                            MotorSimulacion.paso() una vez por tick
-        │                                              ├─► Persona.bitacora  ──► reporte_P<id>.txt
-        │                                              ├─► motor.salidas (Cola) ──► salidas.csv
-        │                                              └─► Nodo.ocupacion / visitas ──► mapa de calor
+Edificio (grafo + personas)
+        │ copia()
         ▼
-GestorEscenarios.aTexto / aJson ──► BaseDatos ──► ComparadorEscenarios ──► resultados.csv
+MotorSimulacion.paso() una vez por tick
+  ├─► Persona.bitacora  ──► reporte_P<id>.txt
+  ├─► motor.salidas (Cola) ──► salidas.csv
+  └─► Nodo.ocupacion / visitas ──► mapa de calor
+GestorEscenarios.aTexto ──► BaseDatos ──► ComparadorEscenarios ──► resultados.csv
 ```
 
 #### Integrante 1: núcleo, persistencia y reportes
@@ -264,9 +256,9 @@ Ninguna usa `java.util`. Se prueban en `test/evacua/PruebasEstructuras.java`.
 **2. Guardar y cargar escenarios en archivo (`persistencia/GestorEscenarios`)**
 
 - `aTexto(edificio, conPersonas)`: genera el `.txt`. Escribe un bloque de filas por piso (una letra por nodo: `H` habitación, `P` pasillo, `E` escalera, `S` salida, `.` vacío), una línea `#PISO n` entre pisos y, si `conPersonas`, una sección `#PERSONAS` con una línea por persona (`piso fila col TIPO SALUD`). Una letra **en minúscula** significa nodo bloqueado.
-- `aJson(edificio)`: genera el `.json` con `filas`, `columnas`, `pisos`, `modo` (`cuadricula` o `grafo`), la lista de `nodos` (id, tipo, piso, x, y, bloqueado), las `conexiones` (origen, destino, tiempo, capacidad, bloqueada) y las `personas`. Es el formato que vuelve a leer `ParserJson`.
-- `guardar(archivo, edificio)`: escribe `.json` si el nombre termina en `.json`; en cualquier otro caso escribe `.txt`.
-- `leer(archivo)`: lee el archivo como texto UTF-8 y se lo pasa a `ParserPlano.leer(contenido, nombre)` (Integrante 2), que elige el parser por la extensión. Si algo falla lanza `IllegalArgumentException` con el motivo y el edificio actual no cambia.
+- `guardar(archivo, edificio)`: escribe el `.txt` con `aTexto(edificio, true)`.
+- `leer(archivo)`: lee el archivo como texto UTF-8 y se lo pasa a `deTexto`. Si algo falla lanza `IllegalArgumentException` con el motivo y el edificio actual no cambia.
+- `deTexto(contenido)`: separa los pisos por las líneas `#PISO`, convierte cada carácter con `TipoNodo.de` (minúscula = bloqueado) y lee las líneas de `#PERSONAS`. Con un solo piso la línea de persona es `fila col TIPO SALUD`; con varios es `piso fila col TIPO SALUD`. Rechaza el archivo con un mensaje claro si no hay plano, si las filas o pisos no tienen el mismo tamaño, si hay un carácter inválido, si no hay ninguna salida (`S`), si una línea de persona está mal escrita o si una persona no está sobre un nodo libre.
 - `validarParaGuardar(edificio)` (RN-10): devuelve la lista de errores (falta una salida, o una persona no está en un nodo válido). Si no está vacía, no se escribe nada.
 
 **3. Base de datos de escenarios (`persistencia/BaseDatos`)**
@@ -275,10 +267,10 @@ No usa SQL ni servidor: son archivos dentro de la carpeta `datos/` (que está en
 
 | Método | Qué hace con los archivos |
 |---|---|
-| `guardar(nombre, edificio)` | Valida con `validarParaGuardar` y escribe `datos/escenarios/<nombre>.json` (crea la carpeta si no existe) |
-| `cargar(nombre)` | Lee ese `.json` con `ParserPlano.leer`; si no existe lanza un error claro |
-| `listar()` | Lista los `*.json` de `datos/escenarios/` sin la extensión y en orden alfabético |
-| `eliminar(nombre)` | Borra el `.json` |
+| `guardar(nombre, edificio)` | Valida con `validarParaGuardar` y escribe `datos/escenarios/<nombre>.txt` (crea la carpeta si no existe) |
+| `cargar(nombre)` | Lee ese `.txt` con `GestorEscenarios.deTexto`; si no existe lanza un error claro |
+| `listar()` | Lista los `*.txt` de `datos/escenarios/` sin la extensión y en orden alfabético |
+| `eliminar(nombre)` | Borra el `.txt` |
 | `registrarResultado(linea)` | Agrega una línea a `datos/resultados.csv`; si el archivo no existe, escribe antes la cabecera |
 | `resultados()` | Devuelve las líneas de `datos/resultados.csv` |
 
@@ -323,9 +315,9 @@ La columna `orden_salida` sale de la posición en la cola; `tiempo_salida` es el
 
 **7. `Main`**: arranca la aplicación con `VentanaPrincipal`.
 
-#### Integrante 2: edificio, rutas, importación e interfaz
+#### Integrante 2: edificio, rutas e interfaz
 
-Responsable del **modelo del edificio**, de **encontrar caminos**, de **leer y validar planos** y de lo que el usuario ve y toca.
+Responsable del **modelo del edificio**, de **encontrar caminos** y de lo que el usuario ve y toca.
 
 **1. Modelo del edificio (`edificio/`)**
 
@@ -333,7 +325,7 @@ Responsable del **modelo del edificio**, de **encontrar caminos**, de **leer y v
 - Edición: `crearNodo`, `modificarNodo`, `eliminarNodo`, `bloquear(f, c, valor)`, `rect` (pinta un rectángulo), `agregar` (una persona), y para conexiones explícitas `conectar`, `desconectar`, `bloquearConexion`. `copia()` duplica todo para simular sin tocar el original; `copiaConPisos(n)` lo hace con más pisos (botón "+ Agregar piso").
 - `Grafo.desde(edificio)` arma la lista de adyacencia `ady[]` con `Arista` (destino, tiempo, capacidad):
   - **Modo cuadrícula** (por defecto): vecinos arriba, abajo, izquierda y derecha dentro del mismo piso, con tiempo 1 (3 si el destino es escalera). Las escaleras unen la misma fila y columna de pisos consecutivos, con tiempo 3.
-  - **Modo grafo** (`conexionesExplicitas`): solo cuentan las `Conexion` del plano. Cada una es bidireccional, con tiempo y capacidad.
+  - **Modo grafo** (`conexionesExplicitas = true`, solo se activa por código; los `.txt` siempre cargan en modo cuadrícula): solo cuentan las `Conexion` creadas con `conectar`. Cada una es bidireccional, con tiempo y capacidad.
   - Los bloqueos no se copian al grafo: se leen en vivo (`Nodo.bloqueado`, `Arista.bloqueada()`), así un bloqueo nuevo se nota sin reconstruirlo.
   - `factorTiempo` es el menor tiempo por unidad de distancia del grafo; lo usa A* para no sobreestimar.
 - `HistorialEdicion` (sobre `Pila`): `guardar(actual)` antes de cada cambio, `deshacer()` devuelve el edificio anterior y `puedeDeshacer()`.
@@ -344,25 +336,14 @@ Responsable del **modelo del edificio**, de **encontrar caminos**, de **leer y v
 - `Dijkstra`: `h = 0`. `AEstrella`: `h = Heuristica.aTiempo(...)`, es decir, distancia Manhattan en el piso más la diferencia de pisos, multiplicada por `factorTiempo` (admisible, RN-16). Por eso ambos dan el mismo costo, pero A* explora menos nodos.
 - `BuscadorRutas.buscar(..., astar)`: construye el `Grafo` y elige el algoritmo. `RecalculadorRutas.desdePosicion` busca desde donde está la persona ahora (RN-07), y `evitandoCongestion` pasa un `evitar` que descarta los nodos llenos (salvo las salidas).
 
-**3. Importación y validación de planos (`importacion/`)**
-
-Flujo: `ParserPlano.leer(contenido, nombre)` → según la extensión:
-
-- **`.txt`**: `deTexto` separa los pisos por las líneas `#PISO`, lee cada carácter con `TipoNodo.de` (minúscula = bloqueado) y lee `#PERSONAS`. Con un solo piso la línea de persona es `fila col TIPO SALUD`; con varios es `piso fila col TIPO SALUD`.
-- **`.json`**: `JsonMini` (analizador propio, sin librerías) → `ParserJson.parse` → `PlanoDatos`.
-- **`.xml`**: `ParserXml.parse` (DOM de la librería estándar) → `PlanoDatos`.
-
-Los parsers no validan: solo llenan `PlanoDatos`. Luego `ValidadorPlano.validar(plano)` (RN-15) recorre todo y devuelve **todos** los errores a la vez: plano sin nodos, id faltante o repetido, tipo inválido, coordenadas inválidas o fuera del tamaño declarado, dos nodos en la misma celda, piso inválido, falta de salida, conexión con origen o destino inexistente, a sí mismo, con tiempo ≤ 0 o sin capacidad ≥ 1, y personas con nodo, tipo o salud inválidos. Si la lista no está vacía, `ConstructorEdificio.construir` lanza `IllegalArgumentException` con todos los mensajes y **no cambia nada**; si está vacía, construye el `Edificio`. `recursos/planos/edificio_error.json` está hecho a propósito para probar esto.
-
-**4. Interfaz (`vista/`)**
+**3. Interfaz (`vista/`)**
 
 - `VentanaPrincipal` (título "EVACUA") agrupa los botones por tarea y es el único que toca archivos y diálogos:
 
 | Botón | Código que llama | Datos |
 |---|---|---|
-| Cargar / Guardar escenario | `GestorEscenarios.leer` / `guardar` | `.txt` |
-| Importar plano del edificio | `GestorEscenarios.leer` | `.json`, `.xml` o `.txt` (muestra los errores si es inválido) |
-| Guardar / Cargar de base de datos | `BaseDatos.guardar` / `cargar` | `datos/escenarios/*.json` |
+| Cargar / Guardar escenario | `GestorEscenarios.leer` / `guardar` | `.txt` (si el archivo es inválido muestra el motivo y no cambia nada) |
+| Guardar / Cargar de base de datos | `BaseDatos.guardar` / `cargar` | `datos/escenarios/*.txt` |
 | Comparar escenarios guardados | `ComparadorEscenarios.compararGuardados` | `datos/resultados.csv` |
 | Iniciar emergencia | crea `MotorSimulacion` y un `Timer` que llama a `paso()` | edificio en memoria |
 | Exportar salidas (CSV), reportes | `ExportadorSalidas`, `ExportadorIndividual` | `.csv`, `reporte_P<id>.txt` |
@@ -409,7 +390,7 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
 
 | Dato | Entra o sale | Dónde |
 |---|---|---|
-| Personas, tipo y salud iniciales, bloqueos | **Entra** del `.txt`/`.json`/`.xml` (ya validado por el Integrante 2) | `Edificio.personas`, `Nodo.bloqueado` |
+| Personas, tipo y salud iniciales, bloqueos | **Entra** del `.txt` (ya validado por `GestorEscenarios.deTexto`) | `Edificio.personas`, `Nodo.bloqueado` |
 | `RegistroSalida` | **Sale** a la cola `salidas` y luego a `salidas.csv` | `MotorSimulacion` → `ExportadorSalidas` |
 | Bitácora, `hist` e historial | **Salen** a `reporte_P<id>.txt` | `Persona` → `ReporteSimulacion.individual` |
 | `Nodo.esperas`, `exploradosTotal`, `evacuadas()`, `promedioEvac()`, `promedioEstres()` | **Salen** al reporte general y a `resultados.csv` | `ReporteSimulacion.general`, `ComparadorEscenarios.simular` |
@@ -419,17 +400,17 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
 Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. Es Java Swing, sin dependencias externas.
 
 Qué hay hoy (por integrante):
-- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora, la cola las salidas y la pila el botón "Deshacer" (Ctrl+Z) del editor, que revierte pintar, borrar, bloquear, agregar un piso o cargar un plano; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.json` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
-- **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas; importación de planos `.json`, `.xml` y `.txt` con validación que informa todos los errores.
+- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora, la cola las salidas y la pila el botón "Deshacer" (Ctrl+Z) del editor, que revierte pintar, borrar, bloquear, agregar un piso o cargar un plano; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.txt` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
+- **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas.
 - **Integrante 3:** recálculo por congestión (si el siguiente nodo está lleno, la persona espera los ticks configurados y rodea el nodo lleno por otro camino; si no hay otro camino, sigue esperando); jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
 Pisos: el edificio puede tener varios pisos. El edificio original es el **piso 1** y el selector de la derecha (Piso 1, 2, 3...) cambia el piso que se dibuja; "+ Agregar piso" agrega uno vacío en modo edición. Las **escaleras** (`E`) en la misma fila y columna de pisos consecutivos los conectan (costo 3). Las personas de pisos altos bajan por ellas hasta una salida. El mapa de calor se actualiza por tick (colorea solo los nodos con gente en ese momento, más rojo cuanto más cerca de la capacidad) y, al terminar, muestra la ocupación acumulada (RN-19). Debajo del selector de pisos hay una lista "Salieron" con el id y el tiempo de quienes ya salieron. Mientras corre la simulación, cada vez que se bloquea o desbloquea una zona se recalculan solas las rutas de todos (por eso no hay botón de recalcular).
 
 Limitaciones conocidas:
-- La interfaz dibuja un piso a la vez como cuadrícula: un plano importado se ubica por las coordenadas `x` (columna) e `y` (fila), y las conexiones no se dibujan como líneas.
+- La interfaz dibuja un piso a la vez como cuadrícula: las conexiones no se dibujan como líneas.
 - El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. La capacidad de las conexiones se valida y se guarda, pero la congestión se controla por nodo.
 - La "base de datos" es un almacén embebido en archivos (carpeta `datos/`), sin servidor.
-- La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) o importando un plano.
+- La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) .
 
 ### 7.1 Pendiente por implementar
 
@@ -437,7 +418,7 @@ Lo que todavía falta para cumplir el documento por completo:
 
 1. **Dibujar las rutas de evacuación (2.8).** La interfaz dibuja personas, bloqueos y mapa de calor, pero no la ruta asignada a cada persona. Dibujar la ruta en el piso que se está viendo. *(Integrante 2, `vista`)*
 2. **Estados dañado y peligroso (2.4).** Solo existe "bloqueado". Agregar los estados dañado y peligroso para nodos y conexiones, y poder bloquear conexiones desde la interfaz (hoy solo por código). *(Integrante 2)*
-3. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy se hace importando un plano o por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
+3. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy solo se hace por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
 4. **Exportar los reportes individuales al terminar (RN-14).** Hoy se exportan con un botón; deben generarse automáticamente cuando termina la simulación, haya evacuado o no cada persona. *(Integrante 1)*
 5. **Capacidad de las conexiones (RN-03).** Se valida y se guarda, pero la simulación solo controla la capacidad por nodo. Hacer que también limite cuántas personas cruzan una conexión a la vez. *(Integrante 3 con Integrante 2)*
 6. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
@@ -459,16 +440,7 @@ H..P.E.
 1 0 1 ADULTO SANO   <- o: piso fila columna TIPO SALUD (varios pisos; el piso empieza en 1)
 ```
 
-Formato `.json` (ver `recursos/planos/edificio_ids.json`; el `.xml` equivale):
-```
-{ "modo": "grafo",            // "cuadricula" = vecinos de la cuadrícula; "grafo" = solo las conexiones listadas
-  "filas": 3, "columnas": 6,  // opcional
-  "pisos": 1,                  // opcional
-  "nodos": [ {"id": "H1", "tipo": "HABITACION", "piso": 1, "x": 1, "y": 1, "bloqueado": false} ],  // piso opcional (1 por defecto)
-  "conexiones": [ {"origen": "H1", "destino": "P1", "tiempo": 1, "capacidad": 3} ],
-  "personas": [ {"nodo": "H1", "tipo": "ADULTO", "salud": "SANO"} ] }
-```
-Tipos de nodo: `HABITACION`, `PASILLO`, `ESCALERA`, `SALIDA`. Tipos de persona: `ADULTO`, `NINO`, `MOVILIDAD`, `RESCATE`. Salud: `SANO`, `HERIDO`, `ENFERMO`, `INCAPACITADO`. Un plano inválido se rechaza listando todos los errores y el edificio actual no cambia (RN-15).
+Tipos de nodo: `HABITACION`, `PASILLO`, `ESCALERA`, `SALIDA`. Tipos de persona: `ADULTO`, `NINO`, `MOVILIDAD`, `RESCATE`. Salud: `SANO`, `HERIDO`, `ENFERMO`, `INCAPACITADO`. Un plano `.txt` inválido se rechaza con un mensaje y el edificio actual no cambia.
 
 Compilar, probar y ejecutar (JDK 11 o superior), desde la raíz del repo:
 ```
@@ -493,7 +465,7 @@ En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar
    - Integrante 1 → consume los resultados del motor para reportes, comparación y persistencia.
 5. **A\* debe ser admisible** (RN-16): convierte la distancia heurística a tiempo de recorrido para no sobreestimar.
 6. **Determinismo:** los eventos aleatorios deben usar la semilla configurable para poder repetir una simulación.
-7. **Validar antes de modificar:** la importación de planos y el guardado de escenarios validan primero (RN-10, RN-15) y nunca dejan el edificio en un estado a medias.
+7. **Validar antes de modificar:** la lectura de planos `.txt` y el guardado de escenarios validan primero (RN-10) y nunca dejan el edificio en un estado a medias.
 8. **Bitácora inmutable** (RN-11): solo se agrega, nunca se edita.
 9. **Valores configurables:** tiempo límite, umbral de estrés, probabilidad de eventos, semilla y capacidades no deben quedar fijos en el código.
 10. Idioma del proyecto: **español** (nombres de dominio, mensajes y documentación).
