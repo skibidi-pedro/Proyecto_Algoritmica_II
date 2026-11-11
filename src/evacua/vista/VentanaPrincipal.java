@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 
-/** Ventana principal (Swing): botones de casos de uso, cuadricula, estado y registro. */
 public class VentanaPrincipal extends JFrame {
 
     Edificio mapa;
@@ -47,7 +46,7 @@ public class VentanaPrincipal extends JFrame {
     final BaseDatos bd = new BaseDatos("datos");
     final HistorialEdicion historial = new HistorialEdicion();
     JButton btnDeshacer;
-    int pisoActual;            // 0 = piso 1
+    int pisoActual;
     JPanel panelPisos;
     JTextArea txtSalidas;
     JScrollPane panelSalidas;
@@ -127,7 +126,7 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.INCAPACITADO, 9, 9);
         m.agregar(TipoPersona.RESCATE, EstadoSalud.SANO, 2, 15);
-        // pisos 2 y 3: mismo plano, escalera en la misma posicion y sin salidas (se evacua por el piso 1)
+
         for (int piso = 1; piso < 3; piso++) {
             int b = piso * 12;
             m.rect(TipoNodo.PASILLO, b + 5, 1, b + 6, 18);
@@ -145,15 +144,12 @@ public class VentanaPrincipal extends JFrame {
         return m;
     }
 
-    // ---------- panel de casos de uso (botones) ----------
-
     JComponent crearPanelIzquierdo() {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBorder(new EmptyBorder(6, 6, 6, 0));
         ButtonGroup herramientas = new ButtonGroup();
 
-        // Escenarios y persistencia
         p.add(grupo("Escenarios y persistencia",
                 boton("Cargar escenario", "Lee un escenario .txt (plano + personas)", e -> cargarEscenario()),
                 boton("Guardar escenario", "Guarda plano, bloqueos y personas en un .txt", e -> guardarEscenario()),
@@ -162,7 +158,6 @@ public class VentanaPrincipal extends JFrame {
                 boton("Comparar escenarios guardados", "Simula escenarios de la base de datos y compara resultados", e -> compararGuardados()),
                 boton("Comparar escenarios", "Simula dos escenarios y compara resultados", e -> compararEscenarios())));
 
-        // Gestionar edificio (nodos y conexiones)
         btnDeshacer = boton("Deshacer (Ctrl+Z)", "Deshace el ultimo cambio al edificio (solo en modo edicion)", e -> deshacer());
         p.add(grupo("Gestionar edificio (nodos y conexiones)",
                 btnDeshacer,
@@ -173,7 +168,6 @@ public class VentanaPrincipal extends JFrame {
                 tool("Salida", Herramienta.SALIDA, herramientas, false, "Pinta nodos de tipo salida"),
                 tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Elimina el nodo y las personas sobre el")));
 
-        // Registrar personas
         cmbTipo = new JComboBox<>(TipoPersona.values());
         cmbSalud = new JComboBox<>(EstadoSalud.values());
         p.add(grupo("Registrar personas",
@@ -181,12 +175,10 @@ public class VentanaPrincipal extends JFrame {
                 tool("Colocar / quitar persona", Herramienta.PERSONA, herramientas, false,
                         "Clic en un nodo libre para colocar; clic otra vez para quitar")));
 
-        // Bloqueos
         p.add(grupo("Bloqueos",
                 tool("Bloquear / desbloquear zonas", Herramienta.BLOQUEO, herramientas, false,
                         "Clic o arrastre sobre nodos. Funciona tambien durante la simulacion")));
 
-        // Simulacion
         chkTiempoReal = new JCheckBox("Visualizar simulacion en tiempo real", true);
         velocidad = new JSlider(1, 10, 5);
         velocidad.setToolTipText("Velocidad de la animacion");
@@ -201,7 +193,6 @@ public class VentanaPrincipal extends JFrame {
                 boton("Volver a edicion", "Descarta la simulacion y vuelve al escenario editable", e -> volverAEdicion()),
                 boton("Comparar Dijkstra vs A*", "Compara nodos explorados y tiempo de calculo", e -> compararAlgoritmos())));
 
-        // Analisis
         JToggleButton calor = new JToggleButton("Ver mapa de calor");
         calor.setToolTipText("Colorea los nodos segun su ocupacion acumulada");
         calor.addActionListener(e -> {
@@ -270,21 +261,18 @@ public class VentanaPrincipal extends JFrame {
         return b;
     }
 
-    // ---------- acciones ----------
-
     void log(String s) {
         if (logArea == null) return;
         logArea.append(s + "\n");
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
-    /** Selector de pisos (a la derecha): un boton por piso y, en modo edicion, un boton para agregar piso. */
     void reconstruirSelector() {
         Edificio m = vista();
         if (pisoActual >= m.pisos) pisoActual = m.pisos - 1;
         panelPisos.removeAll();
         ButtonGroup grupo = new ButtonGroup();
-        for (int k = m.pisos - 1; k >= 0; k--) {   // el piso mas alto arriba, como en un edificio
+        for (int k = m.pisos - 1; k >= 0; k--) {
             final int piso = k;
             JToggleButton b = new JToggleButton("Piso " + (k + 1), k == pisoActual);
             b.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -310,7 +298,6 @@ public class VentanaPrincipal extends JFrame {
         panelPisos.repaint();
     }
 
-    /** Guarda el edificio de edicion en la pila antes de cambiarlo. */
     void guardarParaDeshacer() {
         historial.guardar(mapa);
         btnDeshacer.setEnabled(motor == null);
@@ -342,7 +329,6 @@ public class VentanaPrincipal extends JFrame {
         log("Piso " + mapa.pisos + " agregado. Pinte sus nodos; las escaleras se conectan con las del piso de abajo.");
     }
 
-    /** Lista, debajo del selector de pisos, a quienes ya salieron (en orden de salida, con su id y tiempo). */
     void actualizarSalidas() {
         StringBuilder sb = new StringBuilder();
         int n = 0;
@@ -383,13 +369,12 @@ public class VentanaPrincipal extends JFrame {
         if (chkTiempoReal.isSelected()) {
             timer.start();
         } else {
-            while (motor.paso()) { /* corre sin animar */ }
+            while (motor.paso()) {  }
         }
         grid.repaint();
         actualizarEstado();
     }
 
-    /** Al terminar la simulacion guarda datos/salidas.csv con el tiempo y estado de quienes salieron. */
     void guardarSalidasCsv() {
         try {
             File f = new File("datos", "salidas.csv");
@@ -499,7 +484,6 @@ public class VentanaPrincipal extends JFrame {
         if (!abrir && !f.getName().contains(".")) f = new File(f.getPath() + ".txt");
         return f;
     }
-
 
     void cargarEscenario() {
         File f = elegirArchivo(true, null);

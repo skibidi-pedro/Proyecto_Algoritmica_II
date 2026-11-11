@@ -9,14 +9,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Locale;
 
-/** Escribe un CSV con el tiempo y el estado de cada persona que salio, en orden de salida (usa la cola de salidas). */
 public final class ExportadorSalidas {
     public static final String CABECERA = "orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos";
 
     private ExportadorSalidas() {
     }
 
-    /** La cola queda intacta: se desencola cada registro y se vuelve a encolar al final, asi se puede exportar varias veces. */
     public static int exportar(MotorSimulacion m, File archivo) throws IOException {
         StringBuilder sb = new StringBuilder(CABECERA).append('\n');
         int n = m.salidas.tamano();

@@ -3,7 +3,6 @@ package evacua.estructuras;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-/** Lista doblemente enlazada (propia). Se usa para la bitacora de recorrido. */
 public class ListaDoble<T> implements Iterable<T> {
     private static class Nodo<T> {
         T dato;
@@ -91,7 +90,6 @@ public class ListaDoble<T> implements Iterable<T> {
         tam = 0;
     }
 
-    /** Recorre de inicio a fin. */
     @Override
     public Iterator<T> iterator() {
         return new Iterator<T>() {
@@ -110,7 +108,6 @@ public class ListaDoble<T> implements Iterable<T> {
         };
     }
 
-    /** Recorre de fin a inicio. */
     public Iterable<T> alReves() {
         return () -> new Iterator<T>() {
             private Nodo<T> n = cola;

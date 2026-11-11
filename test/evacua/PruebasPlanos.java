@@ -8,7 +8,6 @@ import evacua.simulacion.*;
 import java.nio.file.*;
 import java.util.*;
 
-/** Pruebas de lectura del plano .txt, grafo y rutas. Ejecutar desde la raiz del repo: java -cp out evacua.PruebasPlanos */
 public class PruebasPlanos {
     static int fallos = 0;
 
@@ -23,8 +22,6 @@ public class PruebasPlanos {
         return GestorEscenarios.leer(new java.io.File("recursos/planos/" + f));
     }
 
-
-    /** Grafo de prueba armado en codigo: H1-P1-P2-E1-S1 mas una ventana H2 (modo de conexiones explicitas). */
     static Edificio grafoPrueba() {
         Edificio j = new Edificio(3, 6);
         j.crearNodo(TipoNodo.HABITACION, 1, 1, "H1");
@@ -50,7 +47,6 @@ public class PruebasPlanos {
         chk(j.filas == 3 && j.cols == 6 && j.conexiones.size() == 6 && j.personas.size() == 2, "grafo de prueba: dimensiones/conexiones/personas");
         chk(j.conexionesExplicitas, "el grafo de prueba usa conexiones explicitas");
 
-        // Planos .txt invalidos se rechazan con un mensaje claro
         String[] malos = {"HPP\n", "HPS\nHP\n", "HPX\n", "HPS\n#PERSONAS\n0 0 ADULTO\n", "HPS\n#PERSONAS\n0 5 ADULTO SANO\n"};
         for (String m : malos) {
             boolean rechazado = false;
@@ -62,20 +58,18 @@ public class PruebasPlanos {
             chk(rechazado, "plano .txt invalido se rechaza: " + m.replace("\n", "|"));
         }
 
-        // Rutas: H1 -> S1. Camino: H1-P1-P2-E1-S1 = 1+1+3+1 = 6; ventana H2-S1 cuesta 5 (H1-P1-H2-S1 = 7)
         List<int[]> metas = j.salidas();
         ResultadoRuta d = BuscadorRutas.buscar(j, 1, 1, metas, false), a = BuscadorRutas.buscar(j, 1, 1, metas, true);
         chk(d.ruta != null && d.costo == 6 && a.costo == 6, "Dijkstra y A* encuentran costo 6: " + d.costo + "/" + a.costo);
         chk(a.explorados <= d.explorados, "A* explora <= nodos que Dijkstra");
-        j.n[1][3].bloqueado = true; // bloquear P2
+        j.n[1][3].bloqueado = true;
         ResultadoRuta b = BuscadorRutas.buscar(j, 1, 1, metas, true);
         chk(b.ruta != null && b.costo == 7, "Bloqueo de P2: la ruta alterna cuesta 7 (por la ventana): " + b.costo);
         j.n[1][3].bloqueado = false;
-        j.bloquearConexion(1, 2, 2, 2, true); // P1-H2
+        j.bloquearConexion(1, 2, 2, 2, true);
         j.n[1][3].bloqueado = true;
         chk(BuscadorRutas.buscar(j, 1, 1, metas, true).ruta == null, "Sin camino cuando se bloquean nodo y conexion");
 
-        // A* admisible en la cuadricula de edificio.txt: mismo costo que Dijkstra desde cada celda caminable
         Edificio grid = leer("edificio.txt");
         boolean igual = true;
         for (int f = 0; f < grid.filas; f++)
@@ -86,7 +80,6 @@ public class PruebasPlanos {
                 }
         chk(igual, "A* admisible: mismo costo que Dijkstra en toda la cuadricula");
 
-        // CRUD
         Edificio e = new Edificio(3, 3);
         e.crearNodo(TipoNodo.HABITACION, 0, 0, "A");
         e.crearNodo(TipoNodo.SALIDA, 0, 2, "S");
@@ -111,7 +104,6 @@ public class PruebasPlanos {
         e.eliminarNodo(0, 1);
         chk(e.conexiones.isEmpty() && BuscadorRutas.buscar(e, 0, 0, e.salidas(), true).ruta == null, "eliminarNodo quita conexiones");
 
-        // Deshacer con pila (HistorialEdicion)
         HistorialEdicion h = new HistorialEdicion();
         Edificio ed = new Edificio(3, 3);
         ed.crearNodo(TipoNodo.HABITACION, 0, 0, null);
@@ -127,7 +119,6 @@ public class PruebasPlanos {
         u2.n[0][1].tipo = TipoNodo.PASILLO;
         chk(u1.n[0][1].tipo == TipoNodo.VACIO, "las copias del historial son independientes");
 
-        // Simulacion sobre el grafo de prueba
         Edificio s = grafoPrueba();
         MotorSimulacion m = new MotorSimulacion(s, new ParametrosSimulacion(), t -> { });
         m.iniciar();

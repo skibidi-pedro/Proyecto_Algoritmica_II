@@ -3,7 +3,6 @@ package evacua.simulacion;
 import evacua.edificio.EstadoNodo;
 import evacua.edificio.Nodo;
 
-/** Control de capacidad de los nodos (RN-08). Un nodo lleno queda Congestionado y retiene a quienes esperan. */
 public final class ControlCapacidad {
     private ControlCapacidad() {
     }

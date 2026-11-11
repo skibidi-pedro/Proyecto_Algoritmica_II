@@ -2,14 +2,13 @@ package evacua.simulacion;
 
 import evacua.personas.Persona;
 
-/** Datos de una persona en el instante en que sale del edificio. Inmutable. */
 public final class RegistroSalida {
-    public final int orden;          // posicion en la cola de salidas (1 = la primera en salir)
+    public final int orden;
     public final int id;
     public final String tipo, salud;
-    public final int tiempo;         // paso de simulacion en que salio
-    public final double estres;      // estres al salir (0 a 100)
-    public final boolean asistida;   // fue asistida por personal de rescate
+    public final int tiempo;
+    public final double estres;
+    public final boolean asistida;
     public final int pasos, recalculos;
 
     public RegistroSalida(int orden, Persona p, int tiempo) {

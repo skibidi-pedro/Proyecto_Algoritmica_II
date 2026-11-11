@@ -5,7 +5,6 @@ import evacua.edificio.Grafo;
 
 import java.util.List;
 
-/** Fachada: construye el grafo del edificio y ejecuta Dijkstra o A*. */
 public class BuscadorRutas {
     private BuscadorRutas() {
     }

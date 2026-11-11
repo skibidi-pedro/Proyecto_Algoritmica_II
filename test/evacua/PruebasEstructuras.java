@@ -4,7 +4,6 @@ import evacua.estructuras.*;
 
 import java.util.*;
 
-/** Pruebas simples de las estructuras (sin dependencias). Ejecutar: java -cp out evacua.PruebasEstructuras */
 public class PruebasEstructuras {
     static int fallos = 0;
 

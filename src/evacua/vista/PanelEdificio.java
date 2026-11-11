@@ -14,7 +14,6 @@ import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Panel que dibuja la cuadricula: cada nodo es un cuadro; tambien dibuja personas y el mapa de calor. */
 public class PanelEdificio extends JPanel {
     static final int CELL = 38;
 
@@ -108,13 +107,11 @@ public class PanelEdificio extends JPanel {
         int maxV = 1;
         for (Nodo[] fila : m.n) for (Nodo nd : fila) maxV = Math.max(maxV, nd.visitas);
 
-        // cuadricula de fondo
         g.setColor(new Color(205, 205, 205));
         int piso = Math.min(v.pisoActual, m.pisos - 1), base = piso * m.filasPorPiso;
         for (int i = 0; i <= m.filasPorPiso; i++) g.drawLine(0, i * CELL, m.cols * CELL, i * CELL);
         for (int j = 0; j <= m.cols; j++) g.drawLine(j * CELL, 0, j * CELL, m.filasPorPiso * CELL);
 
-        // nodos como cuadros
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
         for (int i = 0; i < m.filasPorPiso; i++) {
             for (int j = 0; j < m.cols; j++) {
@@ -123,7 +120,7 @@ public class PanelEdificio extends JPanel {
                 int x = j * CELL, y = i * CELL;
                 g.setColor(nd.tipo.color);
                 g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
-                // En vivo: ocupacion actual del nodo (se apaga cuando la persona se va). Al terminar: ocupacion acumulada.
+
                 boolean enVivo = v.motor != null && !v.motor.terminado;
                 float calor = enVivo ? (nd.ocupacion > 0 ? 0.25f + 0.6f * Math.min(1f, nd.ocupacion / (float) v.motor.params.capacidad) : 0f)
                         : (nd.visitas > 0 ? 0.12f + 0.73f * nd.visitas / maxV : 0f);
@@ -148,7 +145,6 @@ public class PanelEdificio extends JPanel {
             }
         }
 
-        // personas
         Map<Integer, Integer> contador = new HashMap<>();
         double[][] off = {{0.3, 0.3}, {0.7, 0.3}, {0.3, 0.7}, {0.7, 0.7}};
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));

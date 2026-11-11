@@ -3,11 +3,6 @@ package evacua.personas;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Clase base de las personas del edificio. Cada tipo (Adulto, Nino, MovilidadReducida,
- * PersonalRescate) es una clase derivada. {@code hist} es la linea de tiempo en texto;
- * {@code bitacora} es el registro de nodos visitados (RN-11).
- */
 public abstract class Persona {
     public final int id;
     public final TipoPersona tipo;
@@ -18,7 +13,7 @@ public abstract class Persona {
     public int tEvac = -1, pasos;
     public List<int[]> ruta = new ArrayList<>();
     public Persona objetivo;
-    /** Ticks seguidos esperando un nodo lleno, y si ya busco otro camino en esta espera. */
+
     public int esperando;
     public boolean recalculoPorCongestion;
     public final List<String> hist = new ArrayList<>();
@@ -42,7 +37,6 @@ public abstract class Persona {
         }
     }
 
-    /** Persona a la que debe dirigirse antes de evacuar; null si va directo a la salida. */
     public Persona elegirObjetivo(List<Persona> todas) {
         return null;
     }

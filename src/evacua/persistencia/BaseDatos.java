@@ -12,10 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Base de datos embebida de escenarios (sin servidor ni librerias externas): una carpeta con un
- * archivo .txt por escenario ("escenarios/") y una tabla de resultados en CSV ("resultados.csv").
- */
 public class BaseDatos {
     public static final String CABECERA = "escenario,algoritmo,semilla,personas,evacuadas,ticks,tiempo_promedio,estres_promedio";
     private final Path carpeta;
@@ -29,7 +25,6 @@ public class BaseDatos {
         return carpeta.resolve("escenarios").resolve(nombre + ".txt");
     }
 
-    /** Guarda el escenario si cumple RN-10; si no, lanza IllegalArgumentException con los motivos y no escribe nada. */
     public void guardar(String nombre, Edificio e) throws IOException {
         List<String> err = GestorEscenarios.validarParaGuardar(e);
         if (!err.isEmpty()) throw new IllegalArgumentException("No se puede guardar el escenario: " + String.join(" ", err));
@@ -59,7 +54,6 @@ public class BaseDatos {
         return Files.deleteIfExists(archivo(nombre));
     }
 
-    /** Agrega una fila a la tabla de resultados. */
     public void registrarResultado(String linea) throws IOException {
         Files.createDirectories(carpeta);
         Path f = carpeta.resolve("resultados.csv");

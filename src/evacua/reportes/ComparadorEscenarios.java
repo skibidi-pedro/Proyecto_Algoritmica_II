@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Compara el resultado de simular varios escenarios con los mismos parametros. */
 public final class ComparadorEscenarios {
     private ComparadorEscenarios() {
     }
@@ -26,11 +25,10 @@ public final class ComparadorEscenarios {
         }
     }
 
-    /** Simula el edificio (sin tocar el original) hasta que termine y resume el resultado. */
     public static Fila simular(String nombre, Edificio e, ParametrosSimulacion params) {
         MotorSimulacion m = new MotorSimulacion(e.copia(), params.copia(), s -> { });
         m.iniciar();
-        while (m.paso()) { /* sin animar */ }
+        while (m.paso()) {  }
         Fila f = new Fila();
         f.nombre = nombre;
         f.algoritmo = params.astar ? "A*" : "Dijkstra";
@@ -43,7 +41,6 @@ public final class ComparadorEscenarios {
         return f;
     }
 
-    /** Compara escenarios guardados en la base de datos y registra cada resultado en su tabla. */
     public static List<Fila> compararGuardados(BaseDatos bd, List<String> nombres, ParametrosSimulacion params) throws IOException {
         List<Fila> r = new ArrayList<>();
         for (String n : nombres) {

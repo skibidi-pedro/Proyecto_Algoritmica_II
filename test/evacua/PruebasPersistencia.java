@@ -9,7 +9,6 @@ import java.io.File;
 import java.nio.file.*;
 import java.util.*;
 
-/** Pruebas de base de datos, comparacion y exportacion. Ejecutar desde la raiz: java -cp out evacua.PruebasPersistencia */
 public class PruebasPersistencia {
     static int fallos = 0;
 
@@ -24,7 +23,6 @@ public class PruebasPersistencia {
         return GestorEscenarios.leer(new File("recursos/planos/" + f));
     }
 
-    /** Escenario pequeno armado en codigo: una fila H-P-P-E-S con dos personas. */
     static Edificio chico() {
         Edificio e = new Edificio(3, 6);
         e.crearNodo(TipoNodo.HABITACION, 1, 1, null);
@@ -51,7 +49,6 @@ public class PruebasPersistencia {
         chk(GestorEscenarios.aTexto(g2, true).equals(GestorEscenarios.aTexto(grafo, true)) && g2.personas.size() == 2, "ida y vuelta del escenario pequeno");
         chk(new File(tmp.toFile(), "escenarios/texto.txt").exists(), "el escenario se guarda como .txt");
 
-        // RN-10
         Edificio sinSalida = new Edificio(2, 2);
         sinSalida.crearNodo(TipoNodo.HABITACION, 0, 0, null);
         String msg = "";
@@ -72,14 +69,12 @@ public class PruebasPersistencia {
         }
         chk(nombre, "nombre de escenario con ruta se rechaza");
 
-        // Comparacion y resultados
         ParametrosSimulacion p = new ParametrosSimulacion();
         List<ComparadorEscenarios.Fila> filas = ComparadorEscenarios.compararGuardados(bd, Arrays.asList("texto", "ids"), p);
         chk(filas.size() == 2 && filas.get(0).personas == 9 && filas.get(1).personas == 2, "comparador simula ambos escenarios");
         chk(bd.resultados().size() == 3 && bd.resultados().get(0).equals(BaseDatos.CABECERA), "tabla de resultados con cabecera y 2 filas");
         chk(ComparadorEscenarios.aTexto(filas).contains("ids"), "texto comparativo");
 
-        // Exportacion individual (RN-14)
         MotorSimulacion m = new MotorSimulacion(grid.copia(), p, s -> { });
         m.iniciar();
         while (m.paso()) { }

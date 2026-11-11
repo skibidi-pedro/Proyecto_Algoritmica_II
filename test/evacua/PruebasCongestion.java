@@ -6,7 +6,6 @@ import evacua.persistencia.GestorEscenarios;
 import evacua.personas.Persona;
 import evacua.simulacion.*;
 
-/** Pruebas de recalculo por congestion y ocupacion en vivo. Ejecutar: java -cp out evacua.PruebasCongestion */
 public class PruebasCongestion {
     static int fallos = 0;
 
@@ -18,7 +17,7 @@ public class PruebasCongestion {
     }
 
     public static void main(String[] args) {
-        // Camino corto por arriba (fila 0) tapado por una persona incapacitada; hay otro camino mas largo por abajo.
+
         String plano = ".PPP.\nHP.PS\n.P.P.\n.PPP.\n#PERSONAS\n1 0 ADULTO SANO\n0 2 ADULTO INCAPACITADO\n";
         Edificio e = GestorEscenarios.deTexto(plano);
         ParametrosSimulacion p = new ParametrosSimulacion();
@@ -42,7 +41,6 @@ public class PruebasCongestion {
         chk(!e.personas.get(1).evacuada, "la persona incapacitada sin asistencia no sale");
         chk(m.evacuadas() == 1 && m.salidas.tamano() == 1, "una sola salida en la cola");
 
-        // Sin otro camino: espera y no se rompe
         Edificio e2 = GestorEscenarios.deTexto("HPPS\n#PERSONAS\n0 0 ADULTO SANO\n0 2 ADULTO INCAPACITADO\n");
         ParametrosSimulacion p2 = new ParametrosSimulacion();
         p2.capacidad = 1;
@@ -53,10 +51,8 @@ public class PruebasCongestion {
         while (m2.paso()) { }
         chk(!e2.personas.get(0).evacuada && e2.personas.get(0).historial.recalculos == 0, "sin camino alterno: espera hasta el limite, sin recalcular");
 
-        // Ocupacion en vivo: el nodo que se abandona vuelve a 0 (el mapa de calor en vivo se apaga)
         chk(ocupadaEnPrimerTick && libreDespues, "la ocupacion del nodo inicial queda en 0 cuando la persona se va");
 
-        // Cola iterable (lista de quienes salieron)
         Cola<Integer> c = new Cola<>();
         c.encolar(1);
         c.encolar(2);

@@ -14,7 +14,6 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Guardado y carga de escenarios (plano + bloqueos + personas) en archivos .txt. */
 public class GestorEscenarios {
     private GestorEscenarios() {
     }
@@ -44,7 +43,6 @@ public class GestorEscenarios {
         return sb.toString();
     }
 
-    /** Lee y valida un escenario. Lanza IllegalArgumentException si no se puede leer o es invalido. */
     public static Edificio leer(File f) {
         try {
             return deTexto(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
@@ -57,7 +55,6 @@ public class GestorEscenarios {
         Files.write(f.toPath(), aTexto(e, true).getBytes(StandardCharsets.UTF_8));
     }
 
-    /** RN-10: un escenario solo se guarda si hay al menos una salida y todas las personas estan en un nodo valido. */
     public static java.util.List<String> validarParaGuardar(Edificio e) {
         java.util.List<String> err = new java.util.ArrayList<>();
         boolean salida = false;
@@ -70,11 +67,6 @@ public class GestorEscenarios {
         return err;
     }
 
-    /**
-     * Lee el plano en texto. Cada piso es un bloque de filas; "#PISO n" empieza el siguiente piso.
-     * Luego "#PERSONAS" y lineas "fila columna TIPO SALUD" (fila global) o "piso fila columna TIPO SALUD".
-     * Valida y construye; lanza IllegalArgumentException con el motivo del error.
-     */
     public static Edificio deTexto(String txt) {
         String[] lineas = txt.split("\\R");
         List<List<String>> pisos = new ArrayList<>();

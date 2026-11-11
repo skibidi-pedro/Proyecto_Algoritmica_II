@@ -2,10 +2,6 @@ package evacua.personas;
 
 import java.util.List;
 
-/**
- * Personal de rescate (RN-17): antes de evacuar se dirige primero a los nodos con personas
- * incapacitadas y luego a ninos o personas con movilidad reducida.
- */
 public class PersonalRescate extends Persona {
     public PersonalRescate(int id, EstadoSalud salud, int f, int c) {
         super(id, TipoPersona.RESCATE, salud, f, c);

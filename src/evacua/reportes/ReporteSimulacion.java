@@ -7,7 +7,6 @@ import evacua.simulacion.MotorSimulacion;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Reportes de texto de una simulacion (general e individual por persona). */
 public class ReporteSimulacion {
     private ReporteSimulacion() {
     }

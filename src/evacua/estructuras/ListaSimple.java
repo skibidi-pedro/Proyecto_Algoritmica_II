@@ -3,7 +3,6 @@ package evacua.estructuras;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-/** Lista enlazada simple (propia). */
 public class ListaSimple<T> implements Iterable<T> {
     private static class Nodo<T> {
         T dato;
@@ -51,7 +50,6 @@ public class ListaSimple<T> implements Iterable<T> {
         return d;
     }
 
-    /** Elimina la primera aparicion de x. Devuelve true si estaba. */
     public boolean eliminar(T x) {
         Nodo<T> prev = null, n = cabeza;
         while (n != null) {

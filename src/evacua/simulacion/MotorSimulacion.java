@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/** Motor de simulacion paso a paso (eventos aleatorios, recalculo de rutas y congestion). */
 public class MotorSimulacion {
     public final Edificio mapa;
     public final ParametrosSimulacion params;
@@ -24,9 +23,9 @@ public class MotorSimulacion {
     public final java.util.function.Consumer<String> log;
     public int tick;
     public boolean terminado;
-    /** Cola de salidas: cada persona que sale del edificio se encola con su tiempo y estado (orden FIFO). */
+
     public Cola<RegistroSalida> salidas = new Cola<>();
-    /** Se llama una vez cuando la simulacion termina (por ejemplo, para guardar el CSV de salidas). */
+
     public Runnable alTerminar;
     public int exploradosTotal;
 
@@ -81,7 +80,6 @@ public class MotorSimulacion {
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);
     }
 
-    /** El siguiente nodo esta lleno: busca otro camino que lo rodee (una vez por espera). Si no hay, sigue esperando. */
     private void rodearCongestion(Persona p, int[] lleno) {
         p.recalculoPorCongestion = true;
         List<int[]> metas = p.objetivo != null ? Collections.singletonList(new int[]{p.objetivo.f, p.objetivo.c}) : mapa.salidas();
@@ -120,7 +118,6 @@ public class MotorSimulacion {
         recalcularTodas();
     }
 
-    /** Llamar despues de bloquear a mano un nodo: cuenta los afectados y recalcula (RN-07). */
     public void alBloquear(int f, int c) {
         contarBloqueo(f, c);
         recalcularTodas();
