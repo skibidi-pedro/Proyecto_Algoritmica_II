@@ -9,17 +9,16 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-/**
- * Busqueda de camino minimo en el grafo con cola de prioridad (heap propio).
- * Excluye nodos y conexiones bloqueados (RN-04, RN-05). Dijkstra usa h = 0; A* usa la heuristica.
- */
 public abstract class AlgoritmoRuta {
     public abstract String nombre();
 
-    /** Estimacion del costo restante desde (f, c) hasta la meta mas cercana. */
     protected abstract double h(Grafo g, int f, int c, List<int[]> metas);
 
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas) {
+        return buscar(e, g, sf, sc, metas, null);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas, java.util.function.IntPredicate evitar) {
         long t0 = System.nanoTime();
         int C = g.cols, total = g.total();
         double[] dist = new double[total];
@@ -51,7 +50,7 @@ public abstract class AlgoritmoRuta {
             }
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
-                if (a.bloqueada() || !e.caminable(nid / C, nid % C)) continue;
+                if (a.bloqueada() || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
                 double nd = dist[id] + a.tiempo;
                 if (nd < dist[nid]) {
                     dist[nid] = nd;

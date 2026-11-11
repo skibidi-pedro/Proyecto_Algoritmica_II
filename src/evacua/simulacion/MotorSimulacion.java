@@ -1,6 +1,7 @@
 package evacua.simulacion;
 
 import evacua.edificio.Edificio;
+import evacua.estructuras.Cola;
 import evacua.personas.NivelEstres;
 import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
@@ -15,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/** Motor de simulacion paso a paso (eventos aleatorios, recalculo de rutas y congestion). */
 public class MotorSimulacion {
     public final Edificio mapa;
     public final ParametrosSimulacion params;
@@ -23,6 +23,10 @@ public class MotorSimulacion {
     public final java.util.function.Consumer<String> log;
     public int tick;
     public boolean terminado;
+
+    public Cola<RegistroSalida> salidas = new Cola<>();
+
+    public Runnable alTerminar;
     public int exploradosTotal;
 
     public MotorSimulacion(Edificio mapa, ParametrosSimulacion params, java.util.function.Consumer<String> log) {
@@ -35,6 +39,7 @@ public class MotorSimulacion {
     public void iniciar() {
         tick = 0;
         terminado = false;
+        salidas = new Cola<>();
         for (Persona p : mapa.personas) {
             p.evacuada = false;
             p.asistida = false;
@@ -42,6 +47,8 @@ public class MotorSimulacion {
             p.bitacora.reiniciar();
             p.historial.reiniciar();
             p.acum = 0;
+            p.esperando = 0;
+            p.recalculoPorCongestion = false;
             p.hist.clear();
             p.hist.add("t=0 inicio en (" + p.f + "," + p.c + ")");
             p.bitacora.registrar(0, p.f, p.c, ControlCapacidad.estado(mapa.n[p.f][p.c], params.capacidad));
@@ -73,6 +80,21 @@ public class MotorSimulacion {
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);
     }
 
+    private void rodearCongestion(Persona p, int[] lleno) {
+        p.recalculoPorCongestion = true;
+        List<int[]> metas = p.objetivo != null ? Collections.singletonList(new int[]{p.objetivo.f, p.objetivo.c}) : mapa.salidas();
+        ResultadoRuta r = RecalculadorRutas.evitandoCongestion(mapa, p, metas, params.astar, params.capacidad);
+        exploradosTotal += r.explorados;
+        if (r.ruta == null || r.ruta.isEmpty()) {
+            p.hist.add("t=" + tick + " congestion en (" + lleno[0] + "," + lleno[1] + "), no hay otro camino: espera");
+            return;
+        }
+        p.ruta = new ArrayList<>(r.ruta);
+        p.historial.recalculos++;
+        p.hist.add("t=" + tick + " congestion en (" + lleno[0] + "," + lleno[1] + "), recalcula y toma otro camino");
+        log.accept("t=" + tick + " " + p.etiqueta() + " rodea la congestion en (" + lleno[0] + "," + lleno[1] + ").");
+    }
+
     public void recalcularTodas() {
         int k = 0;
         for (Persona p : mapa.personas) {
@@ -96,7 +118,6 @@ public class MotorSimulacion {
         recalcularTodas();
     }
 
-    /** Llamar despues de bloquear a mano un nodo: cuenta los afectados y recalcula (RN-07). */
     public void alBloquear(int f, int c) {
         contarBloqueo(f, c);
         recalcularTodas();
@@ -176,6 +197,8 @@ public class MotorSimulacion {
                     p.aumentarEstres(1);
                     ns.esperas++;
                     p.historial.esperaCuelloBotella++;
+                    p.esperando++;
+                    if (p.esperando >= params.esperaRecalculo && !p.recalculoPorCongestion) rodearCongestion(p, sig);
                     break;
                 }
                 mapa.n[p.f][p.c].ocupacion--;
@@ -184,6 +207,8 @@ public class MotorSimulacion {
                 ns.ocupacion++;
                 p.ruta.remove(0);
                 p.pasos++;
+                p.esperando = 0;
+                p.recalculoPorCongestion = false;
                 movio = true;
                 p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
                     p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
@@ -192,6 +217,7 @@ public class MotorSimulacion {
                     p.tEvac = tick;
                     ns.ocupacion--;
                     p.hist.add("t=" + tick + " EVACUADA");
+                    salidas.encolar(new RegistroSalida(salidas.tamano() + 1, p, tick));
                 } else {
                     chequearRescate(p);
                 }
@@ -207,6 +233,7 @@ public class MotorSimulacion {
             terminado = true;
             for (Persona p : mapa.personas)
                 if (!p.evacuada) p.hist.add("t=" + tick + " NO EVACUADA (tiempo limite)");
+            if (alTerminar != null) alTerminar.run();
             log.accept("Simulacion terminada en t=" + tick + ": " + evacuadas() + "/" + mapa.personas.size() + " evacuadas.");
         }
         return !terminado;

@@ -2,7 +2,6 @@ package evacua.estructuras;
 
 import java.util.NoSuchElementException;
 
-/** Pila LIFO (propia), sobre lista simple. */
 public class Pila<T> {
     private final ListaSimple<T> datos = new ListaSimple<>();
 

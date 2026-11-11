@@ -7,12 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/** Evento aleatorio (RN-18): colapso repentino de un pasillo. Reproducible con la semilla del Random. */
 public final class EventoAleatorio {
     private EventoAleatorio() {
     }
 
-    /** Bloquea un pasillo libre elegido al azar. Devuelve {fila, col} o null si no hay pasillos libres. */
     public static int[] colapsarPasillo(Edificio e, Random rnd) {
         List<int[]> cand = new ArrayList<>();
         for (int i = 0; i < e.filas; i++)

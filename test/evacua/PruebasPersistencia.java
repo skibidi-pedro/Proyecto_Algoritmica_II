@@ -1,7 +1,6 @@
 package evacua;
 
 import evacua.edificio.*;
-import evacua.importacion.ParserPlano;
 import evacua.persistencia.*;
 import evacua.reportes.*;
 import evacua.simulacion.*;
@@ -10,7 +9,6 @@ import java.io.File;
 import java.nio.file.*;
 import java.util.*;
 
-/** Pruebas de base de datos, comparacion y exportacion. Ejecutar desde la raiz: java -cp out evacua.PruebasPersistencia */
 public class PruebasPersistencia {
     static int fallos = 0;
 
@@ -22,23 +20,35 @@ public class PruebasPersistencia {
     }
 
     static Edificio leer(String f) throws Exception {
-        return ParserPlano.leer(new String(Files.readAllBytes(Paths.get("recursos/planos/" + f))), f);
+        return GestorEscenarios.leer(new File("recursos/planos/" + f));
+    }
+
+    static Edificio chico() {
+        Edificio e = new Edificio(3, 6);
+        e.crearNodo(TipoNodo.HABITACION, 1, 1, null);
+        e.crearNodo(TipoNodo.PASILLO, 1, 2, null);
+        e.crearNodo(TipoNodo.PASILLO, 1, 3, null);
+        e.crearNodo(TipoNodo.ESCALERA, 1, 4, null);
+        e.crearNodo(TipoNodo.SALIDA, 1, 5, null);
+        e.crearNodo(TipoNodo.HABITACION, 2, 2, null);
+        e.agregar(evacua.personas.TipoPersona.ADULTO, evacua.personas.EstadoSalud.SANO, 1, 1);
+        e.agregar(evacua.personas.TipoPersona.NINO, evacua.personas.EstadoSalud.SANO, 2, 2);
+        return e;
     }
 
     public static void main(String[] args) throws Exception {
         Path tmp = Files.createTempDirectory("evacua_bd");
         BaseDatos bd = new BaseDatos(tmp.toString());
-        Edificio demo = leer("edificio_demo.txt"), grafo = leer("edificio_simple.json");
-        demo.n[5][5].bloqueado = true;
-        bd.guardar("demo", demo);
-        bd.guardar("simple", grafo);
-        chk(bd.listar().equals(Arrays.asList("demo", "simple")), "listar: " + bd.listar());
-        Edificio d2 = bd.cargar("demo"), g2 = bd.cargar("simple");
-        chk(GestorEscenarios.aTexto(d2, true).equals(GestorEscenarios.aTexto(demo, true)), "ida y vuelta del escenario cuadricula (bloqueos y personas)");
-        chk(!d2.conexionesExplicitas && g2.conexionesExplicitas && g2.conexiones.size() == 6 && g2.personas.size() == 2, "ida y vuelta del escenario con grafo");
-        chk(GestorEscenarios.aJson(g2).equals(GestorEscenarios.aJson(grafo)), "JSON estable tras guardar y cargar");
+        Edificio grid = leer("edificio.txt"), grafo = chico();
+        grid.n[5][5].bloqueado = true;
+        bd.guardar("texto", grid);
+        bd.guardar("ids", grafo);
+        chk(bd.listar().equals(Arrays.asList("ids", "texto")), "listar: " + bd.listar());
+        Edificio d2 = bd.cargar("texto"), g2 = bd.cargar("ids");
+        chk(GestorEscenarios.aTexto(d2, true).equals(GestorEscenarios.aTexto(grid, true)), "ida y vuelta del escenario cuadricula (bloqueos y personas)");
+        chk(GestorEscenarios.aTexto(g2, true).equals(GestorEscenarios.aTexto(grafo, true)) && g2.personas.size() == 2, "ida y vuelta del escenario pequeno");
+        chk(new File(tmp.toFile(), "escenarios/texto.txt").exists(), "el escenario se guarda como .txt");
 
-        // RN-10
         Edificio sinSalida = new Edificio(2, 2);
         sinSalida.crearNodo(TipoNodo.HABITACION, 0, 0, null);
         String msg = "";
@@ -48,30 +58,28 @@ public class PruebasPersistencia {
             msg = ex.getMessage();
         }
         chk(msg.contains("salida") && !bd.listar().contains("malo"), "RN-10 rechaza sin salida y no escribe");
-        Edificio persona = leer("edificio_demo.txt");
+        Edificio persona = leer("edificio.txt");
         persona.n[persona.personas.get(0).f][persona.personas.get(0).c].tipo = TipoNodo.VACIO;
         chk(!GestorEscenarios.validarParaGuardar(persona).isEmpty(), "RN-10 rechaza persona fuera de un nodo valido");
         boolean nombre = false;
         try {
-            bd.guardar("../x", demo);
+            bd.guardar("../x", grid);
         } catch (IllegalArgumentException ex) {
             nombre = true;
         }
         chk(nombre, "nombre de escenario con ruta se rechaza");
 
-        // Comparacion y resultados
         ParametrosSimulacion p = new ParametrosSimulacion();
-        List<ComparadorEscenarios.Fila> filas = ComparadorEscenarios.compararGuardados(bd, Arrays.asList("demo", "simple"), p);
-        chk(filas.size() == 2 && filas.get(0).personas == 6 && filas.get(1).personas == 2, "comparador simula ambos escenarios");
+        List<ComparadorEscenarios.Fila> filas = ComparadorEscenarios.compararGuardados(bd, Arrays.asList("texto", "ids"), p);
+        chk(filas.size() == 2 && filas.get(0).personas == 9 && filas.get(1).personas == 2, "comparador simula ambos escenarios");
         chk(bd.resultados().size() == 3 && bd.resultados().get(0).equals(BaseDatos.CABECERA), "tabla de resultados con cabecera y 2 filas");
-        chk(ComparadorEscenarios.aTexto(filas).contains("simple"), "texto comparativo");
+        chk(ComparadorEscenarios.aTexto(filas).contains("ids"), "texto comparativo");
 
-        // Exportacion individual (RN-14)
-        MotorSimulacion m = new MotorSimulacion(demo.copia(), p, s -> { });
+        MotorSimulacion m = new MotorSimulacion(grid.copia(), p, s -> { });
         m.iniciar();
         while (m.paso()) { }
         File dir = new File(tmp.toFile(), "reportes");
-        chk(ExportadorIndividual.exportarTodos(m, dir) == 6 && dir.listFiles().length == 6, "un archivo por persona");
+        chk(ExportadorIndividual.exportarTodos(m, dir) == 9 && dir.listFiles().length == 9, "un archivo por persona");
         String txt = new String(Files.readAllBytes(new File(dir, "reporte_P1.txt").toPath()));
         chk(txt.contains("Bitacora de recorrido") && txt.contains("Linea de tiempo"), "el reporte incluye bitacora y linea de tiempo");
 

@@ -1,13 +1,13 @@
 package evacua.simulacion;
 
-
 public class ParametrosSimulacion {
-    public double prob = 0.03;   // probabilidad de evento aleatorio por tick
+    public double prob = 0.03;
     public long semilla = 42;
-    public int limite = 300;     // tiempo limite (ticks)
-    public double umbral = 8;    // umbral de estres
-    public int capacidad = 2;    // personas por nodo
+    public int limite = 300;
+    public double umbral = 8;
+    public int capacidad = 2;
     public boolean astar = true;
+    public int esperaRecalculo = 2;
 
     public ParametrosSimulacion copia() {
         ParametrosSimulacion p = new ParametrosSimulacion();
@@ -17,6 +17,7 @@ public class ParametrosSimulacion {
         p.umbral = umbral;
         p.capacidad = capacidad;
         p.astar = astar;
+        p.esperaRecalculo = esperaRecalculo;
         return p;
     }
 }

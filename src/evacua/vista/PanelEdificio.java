@@ -14,7 +14,6 @@ import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Panel que dibuja la cuadricula: cada nodo es un cuadro; tambien dibuja personas y el mapa de calor. */
 public class PanelEdificio extends JPanel {
     static final int CELL = 38;
 
@@ -54,6 +53,7 @@ public class PanelEdificio extends JPanel {
         int c = e.getX() / CELL, f = piso * m.filasPorPiso + e.getY() / CELL;
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
+        if (click && v.motor == null && v.herramienta != Herramienta.NINGUNA) v.guardarParaDeshacer();
         if (v.herramienta == Herramienta.BLOQUEO) {
             if (nd.tipo == TipoNodo.VACIO) return;
             if (valorArrastre == null) valorArrastre = !nd.bloqueado;
@@ -107,13 +107,11 @@ public class PanelEdificio extends JPanel {
         int maxV = 1;
         for (Nodo[] fila : m.n) for (Nodo nd : fila) maxV = Math.max(maxV, nd.visitas);
 
-        // cuadricula de fondo
         g.setColor(new Color(205, 205, 205));
         int piso = Math.min(v.pisoActual, m.pisos - 1), base = piso * m.filasPorPiso;
         for (int i = 0; i <= m.filasPorPiso; i++) g.drawLine(0, i * CELL, m.cols * CELL, i * CELL);
         for (int j = 0; j <= m.cols; j++) g.drawLine(j * CELL, 0, j * CELL, m.filasPorPiso * CELL);
 
-        // nodos como cuadros
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
         for (int i = 0; i < m.filasPorPiso; i++) {
             for (int j = 0; j < m.cols; j++) {
@@ -122,8 +120,12 @@ public class PanelEdificio extends JPanel {
                 int x = j * CELL, y = i * CELL;
                 g.setColor(nd.tipo.color);
                 g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
-                if (v.verCalor && nd.visitas > 0) {
-                    float a = Math.min(0.85f, 0.12f + 0.73f * nd.visitas / maxV);
+
+                boolean enVivo = v.motor != null && !v.motor.terminado;
+                float calor = enVivo ? (nd.ocupacion > 0 ? 0.25f + 0.6f * Math.min(1f, nd.ocupacion / (float) v.motor.params.capacidad) : 0f)
+                        : (nd.visitas > 0 ? 0.12f + 0.73f * nd.visitas / maxV : 0f);
+                if (v.verCalor && calor > 0) {
+                    float a = Math.min(0.85f, calor);
                     g.setColor(new Color(1f, 0.1f, 0.0f, a));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 }
@@ -143,7 +145,6 @@ public class PanelEdificio extends JPanel {
             }
         }
 
-        // personas
         Map<Integer, Integer> contador = new HashMap<>();
         double[][] off = {{0.3, 0.3}, {0.7, 0.3}, {0.3, 0.7}, {0.7, 0.7}};
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));

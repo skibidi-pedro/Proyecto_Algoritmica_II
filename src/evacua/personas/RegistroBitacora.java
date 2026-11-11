@@ -2,11 +2,10 @@ package evacua.personas;
 
 import evacua.edificio.EstadoNodo;
 
-/** Un registro de la bitacora: inmutable una vez escrito (RN-11). */
 public final class RegistroBitacora {
-    public final int paso;          // paso de simulacion (timestamp)
-    public final int fila, col;     // nodo visitado
-    public final EstadoNodo estado; // estado del nodo en ese instante
+    public final int paso;
+    public final int fila, col;
+    public final EstadoNodo estado;
 
     public RegistroBitacora(int paso, int fila, int col, EstadoNodo estado) {
         this.paso = paso;
