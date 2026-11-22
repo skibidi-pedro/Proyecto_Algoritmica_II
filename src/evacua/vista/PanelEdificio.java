@@ -17,6 +17,12 @@ import java.util.Map;
 public class PanelEdificio extends JPanel {
     static final int CELL = 38;
 
+    static float intensidadCalor(Nodo n, boolean enVivo, int capacidad, int maxVisitas) {
+        if (!enVivo) return n.visitas > 0 ? 0.12f + 0.73f * n.visitas / maxVisitas : 0;
+        if (n.bloqueado || n.ocupacion == 0) return 0;
+        return 0.25f + 0.6f * Math.min(1f, (float) n.ocupacion / n.capacidadEfectiva(capacidad));
+    }
+
     private final VentanaPrincipal v;
     private Boolean valorArrastre;
 
@@ -58,15 +64,13 @@ public class PanelEdificio extends JPanel {
             if (!click || nd.tipo == TipoNodo.VACIO) return;
             boolean corriendo = v.timer.isRunning();
             v.timer.stop();
-            evacua.edificio.Condicion condicion = (evacua.edificio.Condicion) JOptionPane.showInputDialog(
-                    v, "Condición del nodo", "Editar zona", JOptionPane.QUESTION_MESSAGE,
-                    null, evacua.edificio.Condicion.values(), nd.condicion);
-            if (condicion != null) {
-                nd.condicion = condicion;
-                if (v.motor != null) {
-                    if (condicion == evacua.edificio.Condicion.DANADO) v.motor.alBloquear(f, c);
-                    else v.motor.recalcularTodas();
-                }
+            JCheckBox dano = new JCheckBox("Dañado", nd.danado);
+            JCheckBox peligro = new JCheckBox("Peligroso", nd.peligroso);
+            if (JOptionPane.showConfirmDialog(v, new Object[]{dano, peligro}, "Estado del nodo",
+                    JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
+                nd.danado = dano.isSelected();
+                nd.peligroso = peligro.isSelected();
+                if (v.motor != null) v.motor.recalcularTodas();
             }
             if (corriendo) v.timer.start();
         } else if (v.herramienta == Herramienta.BLOQUEO) {
@@ -74,6 +78,7 @@ public class PanelEdificio extends JPanel {
             if (valorArrastre == null) valorArrastre = !nd.bloqueado;
             if (nd.bloqueado != valorArrastre) {
                 nd.bloqueado = valorArrastre;
+                nd.bloqueoReparable = valorArrastre;
                 v.log((valorArrastre ? "Zona bloqueada" : "Zona desbloqueada") + " en (" + f + "," + c + ").");
                 if (v.motor != null) {
                     if (valorArrastre) v.motor.alBloquear(f, c);
@@ -135,8 +140,7 @@ public class PanelEdificio extends JPanel {
                 g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
 
                 boolean enVivo = v.motor != null && !v.motor.terminado;
-                float calor = enVivo ? (nd.ocupacion > 0 ? 0.25f + 0.6f * Math.min(1f, nd.ocupacion / (float) v.motor.params.capacidad) : 0f)
-                        : (nd.visitas > 0 ? 0.12f + 0.73f * nd.visitas / maxV : 0f);
+                float calor = intensidadCalor(nd, enVivo, enVivo ? v.motor.params.capacidad : v.params.capacidad, maxV);
                 if (v.verCalor && calor > 0) {
                     float a = Math.min(0.85f, calor);
                     g.setColor(new Color(1f, 0.1f, 0.0f, a));
@@ -146,9 +150,9 @@ public class PanelEdificio extends JPanel {
                 g.drawRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 g.setColor(new Color(60, 60, 60, 160));
                 g.drawString(String.valueOf(nd.tipo.letra), x + CELL / 2 - 5, y + CELL / 2 + 5);
-                if (nd.condicion != evacua.edificio.Condicion.NORMAL) {
+                if (nd.danado || nd.peligroso) {
                     g.setColor(Color.BLACK);
-                    g.drawString(nd.condicion == evacua.edificio.Condicion.DANADO ? "D" : "!", x + 3, y + 14);
+                    g.drawString((nd.danado ? "D" : "") + (nd.peligroso ? "!" : ""), x + 3, y + 14);
                 }
                 if (nd.bloqueado) {
                     g.setColor(new Color(40, 40, 40, 190));

@@ -15,7 +15,6 @@ public abstract class Persona {
     public Persona objetivo;
 
     public int esperando;
-    public boolean recalculoPorCongestion;
     public final List<String> hist = new ArrayList<>();
     public final Bitacora bitacora = new Bitacora();
     public final HistorialEventos historial = new HistorialEventos();

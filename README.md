@@ -28,20 +28,20 @@ Integrantes:
 | Concepto | Descripción |
 |---|---|
 | **Nodo** | Habitación, Pasillo, Escalera o Salida. Solo las **Salidas** son destino válido de una ruta. |
-| **Estado del nodo** | Libre, Congestionado o Bloqueado. Solo Libre/Congestionado pueden formar parte de una ruta. |
+| **Estado del nodo** | Libre, dañado, peligroso, congestionado o bloqueado. Daño y peligro pueden coexistir. |
 | **Conexión** | Arista del grafo (puerta, pasillo, escalera) con **tiempo de recorrido > 0** y **capacidad máxima**. |
 | **Persona** | Clase base con tipos derivados: Adulto, Niño, Persona con movilidad reducida, Personal de rescate. Cada uno con velocidad y comportamiento propios. |
 | **Estrés** | Valor de 0 a 100 por persona. Sube por congestión, recálculos de ruta y cercanía a peligros; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
 | **Bitácora** | Registro inmutable por persona: cada nodo visitado + paso de simulación (timestamp) + estado del nodo en ese instante. Lista doble o pila. |
 | **Escenario** | Edificio + personas + bloqueos, guardado en base de datos para repetir o comparar simulaciones. |
 | **Desastre** | Tipo de emergencia que se simula: Terremoto, Incendio, Inundación, Fuga de gas, etc. Cada tipo define cómo se bloquean zonas, cuánto estrés genera y cómo evoluciona (RN-20). |
-| **Mapa de calor** | Visualización final de la ocupación/congestión acumulada por nodo. |
+| **Mapa de calor** | Ocupación instantánea durante la simulación y visitas acumuladas al terminar. |
 
 ## 3. Funcionalidades (módulos)
 
 1. **Modelado del edificio.** CRUD de nodos (habitaciones, pasillos, escaleras, salidas) y conexiones entre ellos en un grafo, con tiempo de recorrido y capacidad.
 2. **Gestión de personas.** Registrar personas en un nodo inicial; jerarquía de clases desde `Persona`, con trazabilidad, estrés e historial de eventos; lógica de prioridades diferenciada para rescate.
-3. **Cálculo de rutas.** Ruta más rápida a la salida disponible más cercana; recálculo automático si el camino se bloquea o congestiona; **A\*** (heurística euclidiana o Manhattan) como alternativa a **Dijkstra**, comparando nodos explorados y tiempo de cómputo.
+3. **Cálculo de rutas.** Ruta más rápida a la salida disponible más cercana; evaluación en cada tick; **A\*** (heurística euclidiana o Manhattan) como alternativa a **Dijkstra**, comparando nodos explorados y tiempo de cómputo.
 4. **Bloqueo de zonas y peligros.** Marcar nodos/conexiones como bloqueados, dañados o peligrosos y excluirlos del cálculo mientras dure el bloqueo.
 5. **Simulación.** Emergencia paso a paso; tiempo de salida por persona, cuellos de botella y personas que no evacúan dentro del tiempo límite.
 6. **Escenarios y persistencia.** Guardar/cargar escenarios en una base de datos.
@@ -61,11 +61,11 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-01 | Unicidad | Cada nodo, persona y conexión tiene un identificador único. |
 | RN-02 | Tipos de nodo | Habitación, Pasillo, Escalera o Salida. Solo Salida es destino válido. |
 | RN-03 | Conexión válida | Tiempo de recorrido > 0 y capacidad máxima definida. |
-| RN-04 | Estado del nodo | Libre, Congestionado o Bloqueado. Solo Libre/Congestionado forman parte de una ruta. |
+| RN-04 | Estado del nodo | El bloqueo impide el tránsito. El daño reduce la capacidad en uno (mínimo uno) y el peligro encarece el ingreso. |
 | RN-05 | Bloqueo de zonas | Un nodo o conexión bloqueada se excluye del cálculo mientras dure; al desbloquearse vuelve a estar disponible. |
 | RN-06 | Cálculo de rutas | Ruta hacia la salida disponible más cercana según tiempo de recorrido, evitando bloqueos. |
-| RN-07 | Recálculo dinámico | Si un camino asignado se bloquea en plena simulación, se recalcula desde la posición actual. |
-| RN-08 | Capacidad de nodos | Si las personas en un nodo superan su capacidad, pasa a Congestionado y aumenta el tiempo de recorrido de quienes lo cruzan. |
+| RN-07 | Recálculo dinámico | Cada persona reevalúa su ruta desde la posición actual en cada tick y conserva el recorrido si sigue siendo óptimo. |
+| RN-08 | Capacidad de nodos | Al alcanzar la capacidad efectiva se impiden nuevas entradas. La salida de ocupantes libera plazas en el mismo tick. |
 | RN-09 | Tiempo límite | Quien no llega a una salida dentro del tiempo límite se registra como **No evacuada**. |
 | RN-10 | Persistencia | Un escenario solo se guarda si hay al menos una salida y todas las personas están en un nodo válido. |
 | RN-11 | Bitácora | Cada nodo visitado se registra con paso de simulación y estado del nodo. Los registros **no se modifican** una vez escritos. |
@@ -204,7 +204,7 @@ Proyecto_Algoritmica_II/
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
 - Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, último punto).
-- Control de capacidad de nodos (Congestionado, mayor tiempo de recorrido).
+- Control de capacidad de nodos (capacidad efectiva, desvío o espera).
 - *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
 - *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
 
@@ -334,8 +334,8 @@ Responsable del **modelo del edificio**, de **encontrar caminos** y de lo que el
 **2. Rutas (`rutas/`)**
 
 - `AlgoritmoRuta.buscar(edificio, grafo, filaIni, colIni, metas[, evitar])`: es el algoritmo común. Usa la cola de prioridad con `f = costo acumulado + h`, ignora aristas bloqueadas, nodos no caminables y los que cumpla el predicado `evitar`, y se detiene al sacar el primer nodo que es meta. Devuelve un `ResultadoRuta` con `ruta` (lista de nodos; `null` si no hay camino), `costo`, `explorados` y `nanos` (tiempo de cálculo).
-- `Dijkstra`: `h = 0`. `AEstrella`: `h = Heuristica.aTiempo(...)`, es decir, distancia Manhattan en el piso más la diferencia de pisos, multiplicada por `factorTiempo` (admisible, RN-16). Por eso ambos dan el mismo costo, pero A* explora menos nodos.
-- `BuscadorRutas.buscar(..., astar)`: construye el `Grafo` y elige el algoritmo. `RecalculadorRutas.desdePosicion` busca desde donde está la persona ahora (RN-07), y `evitandoCongestion` pasa un `evitar` que descarta los nodos llenos (salvo las salidas).
+- `Dijkstra`: `h = 0`. `AEstrella`: `h = Heuristica.aTiempo(...)`, es decir, distancia Manhattan en el piso más la diferencia de pisos, multiplicada por `factorTiempo` (admisible, RN-16). Ambos dan el mismo costo óptimo. A* puede explorar menos nodos.
+- `BuscadorRutas.buscar(..., astar)`: construye el `Grafo` y elige el algoritmo. `RecalculadorRutas.desdePosicion` busca desde donde está la persona ahora (RN-07), y `evitandoCongestion` pasa un `evitar` que descarta los nodos llenos.
 
 **3. Interfaz (`vista/`)**
 
@@ -350,7 +350,7 @@ Responsable del **modelo del edificio**, de **encontrar caminos** y de lo que el
 | Exportar salidas (CSV), reportes | `ExportadorSalidas`, `ExportadorIndividual` | `.csv`, `reporte_P<id>.txt` |
 
 - `PanelEdificio` dibuja **un piso a la vez** (el que elige el selector de pisos). Cada herramienta (`Herramienta`) actúa al hacer clic o arrastrar; antes de cada cambio la ventana llama a `historial.guardar(mapa)`, y Deshacer solo funciona en modo edición.
-- **Mapa de calor**: mientras corre la simulación pinta `ocupacion / capacidad` de cada nodo en ese tick, así que una casilla se apaga cuando la persona se va. Al terminar pinta `visitas` acumuladas, normalizadas por el máximo.
+- **Mapa de calor**: mientras corre la simulación pinta `ocupacion / capacidadEfectiva` de cada nodo en ese tick, así que una casilla se apaga cuando la persona se va. Al terminar pinta `visitas` acumuladas, normalizadas por el máximo.
 - La lista **"Salieron (n)"** se arma leyendo `motor.salidas` (la misma cola del CSV).
 - Cuando se bloquea un nodo con la simulación en marcha, la ventana llama a `motor.alBloquear(f, c)`; por eso no existe un botón "Recalcular ruta".
 
@@ -367,8 +367,8 @@ Responsable de **quién** se evacua, **cómo se comporta** y del **bucle de simu
 
 **2. Parámetros y reglas de capacidad (`simulacion/`)**
 
-- `ParametrosSimulacion`: `prob` de evento por tick (0.03), `semilla` (42), `limite` de ticks (300), `umbral` de estrés (8), `capacidad` por nodo (2), `astar` (true) y `esperaRecalculo` (2 ticks). Los valores por defecto son esos y se cambian con el botón "Configurar parámetros". `copia()` sirve para comparar sin alterar los originales.
-- `ControlCapacidad.estado(nodo, capacidad)` devuelve `BLOQUEADO`, `CONGESTIONADO` (si `ocupacion >= capacidad`) o `LIBRE`; ese estado es el que se escribe en la bitácora (RN-08).
+- `ParametrosSimulacion`: `prob` de evento por tick (0.03), `semilla` (42), `limite` de ticks (300), `umbral` de estrés (8), `capacidad` por nodo (2) y `astar` (true). Los valores por defecto son esos y se cambian con el botón "Configurar parámetros". `copia()` sirve para comparar sin alterar los originales.
+- `ControlCapacidad.estado(nodo, capacidad)` devuelve el primer estado aplicable en este orden: bloqueado, congestionado, peligroso, dañado, libre; ese estado es el que se escribe en la bitácora (RN-08).
 - `EventoAleatorio.colapsarPasillo(edificio, random)` (RN-18): elige al azar un pasillo libre y lo bloquea. Usa el `Random` del motor con la semilla, por eso el mismo escenario con la misma semilla da el mismo resultado.
 
 **3. Qué hace `MotorSimulacion.paso()` en cada tick**
@@ -377,13 +377,8 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
 
 1. `tick++`. El desastre seleccionado usa la probabilidad y la semilla del motor. Cuando bloquea una zona, el motor cuenta a las personas afectadas y recalcula las rutas.
 2. Pone `ocupacion = 0` en todos los nodos y la recuenta con las personas que siguen dentro. Esa ocupación es la que lee el mapa de calor en vivo.
-3. Para cada persona no evacuada calcula la velocidad: `tipo.vel × salud.vel`; si el estrés supera el umbral, ×0.6. Si hay un nodo bloqueado al lado, el estrés sube 0.1. Si la velocidad es 0, el estrés sube 0.3 y se pasa a la siguiente.
-4. Suma la velocidad a `acum`; por cada unidad completa intenta dar un paso:
-   - **Ruta vacía** → `asignarRuta` otra vez; si sigue vacía, el estrés sube 0.5.
-   - **Siguiente nodo bloqueado** → recalcula desde donde está (`bloqueosSufridos++`, `recalculos++`).
-   - **Siguiente nodo lleno** (y no es salida) → espera: estrés +1, `Nodo.esperas++`, `esperaCuelloBotella++`. Si lleva `esperaRecalculo` ticks esperando, `rodearCongestion` busca otra ruta que evite los nodos llenos (una vez por espera). Si no hay otra, sigue esperando.
-   - **Si no, avanza**: actualiza `(f, c)`, quita el nodo de la ruta, `pasos++`, escribe en `hist` y en la bitácora (`ControlCapacidad.estado`) y baja el estrés 0.2 si se movió.
-   - Si el nodo es **salida** y no tiene objetivo de rescate, marca `evacuada`, guarda `tEvac` y hace `salidas.encolar(new RegistroSalida(...))`.
+3. En el orden de las personas del plano, el motor evalúa la ruta con el grafo compartido. Descarta nodos llenos y conexiones cuyo cupo ya se consumió. El ocupante puede salir de su propio nodo congestionado. Se conserva el recorrido previo si llega a una meta válida con el mismo costo óptimo.
+4. La velocidad por tipo, salud y estrés se acumula hasta permitir un paso. Cada movimiento actualiza inmediatamente la ocupación y el cupo compartido de la conexión. Si no hay ruta viable, la persona espera y vuelve a evaluar en el siguiente tick. Al evacuar se libera la plaza de la salida y se registra el resultado en la cola.
 5. Suma 1 a `visitas` de la casilla de cada persona que sigue dentro (o que acaba de salir). Esa es la ocupación acumulada del mapa de calor final.
 6. Si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv` y los reportes individuales (RN-14).
 
@@ -401,9 +396,9 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
 Los requisitos funcionales de los tres integrantes están implementados en `src/evacua/` y cubiertos por pruebas. Es Java Swing, sin dependencias externas.
 
 Qué hay hoy (por integrante):
-- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora, la cola las salidas y la pila el botón "Deshacer" (Ctrl+Z) del editor, que revierte pintar, borrar, bloquear, agregar un piso o cargar un plano; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.txt` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
+- **Integrante 1:** estructuras propias (lista simple y doble, pila, cola, heap): el heap lo usan las rutas, la lista doble la bitácora, la cola las salidas y la pila el botón "Deshacer" (Ctrl+Z) del editor, que revierte bloquear, agregar un piso o cargar un plano; CSV de salidas (`orden_salida,id,tipo,salud,tiempo_salida,estres_al_salir,asistida,pasos,recalculos`) que se guarda solo al terminar la simulación en `datos/salidas.csv` y con el botón "Exportar salidas (CSV)"; base de datos embebida (`datos/escenarios/*.txt` y `datos/resultados.csv`) con la validación RN-10; comparación de escenarios; exportación de un reporte por persona.
 - **Integrante 2:** grafo con conexiones (tiempo > 0 y capacidad), CRUD de nodos y conexiones, bloqueos de nodos y conexiones; Dijkstra y A\* separados, con la heurística convertida a tiempo; recalculador de rutas.
-- **Integrante 3:** recálculo por congestión (si el siguiente nodo está lleno, la persona espera los ticks configurados y rodea el nodo lleno por otro camino; si no hay otro camino, sigue esperando); jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
+- **Integrante 3:** recálculo por congestión (cada tick busca un camino con plazas y espera si no hay alternativa); jerarquía `Adulto`, `Nino`, `MovilidadReducida`, `PersonalRescate`; bitácora sobre lista doble; estrés de 0 a 100; historial de eventos; rescate que prioriza incapacitados y luego niños o movilidad reducida; eventos aleatorios con semilla; control de capacidad con estado Congestionado.
 
 Pisos: el edificio puede tener varios pisos. El edificio original es el **piso 1** y el selector de la derecha (Piso 1, 2, 3...) cambia el piso que se dibuja; "+ Agregar piso" agrega uno vacío en modo edición. Las **escaleras** (`E`) en la misma fila y columna de pisos consecutivos los conectan (costo 3). Las personas de pisos altos bajan por ellas hasta una salida. El mapa de calor se actualiza por tick (colorea solo los nodos con gente en ese momento, más rojo cuanto más cerca de la capacidad) y, al terminar, muestra la ocupación acumulada (RN-19). Debajo del selector de pisos hay una lista "Salieron" con el id y el tiempo de quienes ya salieron. Mientras corre la simulación, cada vez que se bloquea o desbloquea una zona se recalculan solas las rutas de todos (por eso no hay botón de recalcular).
 
@@ -416,11 +411,11 @@ Limitaciones conocidas:
 ### 7.1 Funcionalidades integradas
 
 1. **Rutas por piso (2.8).** La cuadrícula dibuja los tramos pendientes de cada persona con el color de su tipo. Al cambiar de piso se muestran los tramos correspondientes.
-2. **Zonas y conexiones (RN-04, RN-05, RN-16).** «Estado del nodo» marca una zona como normal, dañada (D) o peligrosa (!). Un daño o bloqueo impide el paso. El peligro permite el paso y duplica el costo de entrada para Dijkstra y A*. El bloqueo se puede activar independientemente de la condición.
-3. **Editor de conexiones (2.1).** En «Editar conexión» se eligen ambos extremos por piso y coordenadas, tiempo positivo, capacidad, condición y bloqueo. Editar un enlace de cuadrícula conserva los demás vecinos. Los cambios en simulación recalculan las rutas de la copia activa.
+2. **Estados y costos (RN-04, RN-05, RN-16).** El costo de entrada es el tiempo original del enlace multiplicado por el peso del destino (libre 1, dañado 2, peligroso 5, ambos 10) y por 2 si el propio enlace es peligroso. Un enlace dañado o bloqueado sigue cerrado. Todos los factores son al menos uno, por lo que la distancia Manhattan escalada por el menor tiempo por unidad de distancia sigue siendo una cota inferior, incluso con atajos entre pisos.
+3. **Edición y rescate.** La interfaz permite cambiar condiciones y bloquear o desbloquear zonas. Los tipos de nodo y las conexiones se editan mediante el modelo o al importar el plano. Un bloqueo colocado con la herramienta manual es reparable. Cada rescatista en condiciones de actuar puede despejar un bloqueo reparable contiguo por tick mediante una conexión abierta. Al liberar el paso se mantienen daño y peligro. Si un paciente ocupa la última plaza, el rescatista puede asistirlo desde un nodo conectado sin sobreocupar la casilla.
 4. **Reportes automáticos (RN-14).** Al terminar desde Swing se crea una carpeta por ejecución en `datos/reportes/`, con un archivo por persona. Incluye a quienes alcanzaron el tiempo límite. La exportación manual sigue disponible.
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
-6. **Desastres (RN-07, RN-18, RN-20).** Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
+6. **Desastres existentes (RN-07, RN-18, RN-20).** Queda pendiente ampliar su integración con las condiciones combinables. Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
 
 Formato `.txt` (cuadrícula, ver `recursos/planos/edificio.txt`):
 ```
@@ -447,7 +442,7 @@ SE
 1:0:1 2:0:1 2.5 3 PELIGROSO ABIERTA
 ```
 
-Cada posición usa `piso:fila:columna`. El piso empieza en 1 y la fila y la columna empiezan en 0 dentro de cada piso. La última línea conecta las dos escaleras con tiempo 2.5 y capacidad 3. Las condiciones admitidas son `NORMAL`, `DANADO` y `PELIGROSO`. El último campo de una conexión, `ABIERTA` o `BLOQUEADA`, conserva el bloqueo independientemente de su condición. Para los nodos, la minúscula de la cuadrícula sigue indicando bloqueo.
+Cada posición usa `piso:fila:columna`. El piso empieza en 1 y la fila y la columna empiezan en 0 dentro de cada piso. La última línea conecta las dos escaleras con tiempo 2.5 y capacidad 3. Las condiciones admitidas son `NORMAL`, `DANADO` y `PELIGROSO`. El último campo de una conexión, `ABIERTA` o `BLOQUEADA`, conserva el bloqueo independientemente de su condición. Para los nodos, la minúscula de la cuadrícula indica bloqueo. Una misma posición admite varias marcas, por ejemplo `1:0:0 DANADO PELIGROSO REPARABLE`. La última marca requiere un nodo bloqueado. Los planos anteriores siguen siendo válidos.
 
 Por defecto se conservan los vecinos de la cuadrícula y se aplican las conexiones personalizadas. La línea opcional `#GRAFO_EXPLICITO` indica que únicamente se deben usar los enlaces enumerados, incluso si la lista está vacía. Tanto «Guardar escenario» como el guardado en la base de datos usan este formato.
 
@@ -462,6 +457,8 @@ java -cp out evacua.PruebasPersistencia
 java -cp out evacua.PruebasPisos
 java -cp out evacua.PruebasCongestion
 java -cp out evacua.PruebasEmergencia
+java -cp out evacua.PruebasRutasDinamicas
+java -cp out evacua.vista.PruebasInterfaz
 java -cp out evacua.Main
 ```
 En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar `evacua.Main`.

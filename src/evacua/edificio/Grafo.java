@@ -22,6 +22,10 @@ public class Grafo {
             this.conexion = conexion;
         }
 
+        public double costoEntrada(Nodo destino) {
+            return tiempo * destino.pesoEntrada() * (peligrosa() ? 2 : 1);
+        }
+
         public boolean peligrosa() {
             return conexion != null && conexion.condicion == Condicion.PELIGROSO;
         }

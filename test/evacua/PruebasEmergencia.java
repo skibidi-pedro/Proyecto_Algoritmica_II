@@ -37,8 +37,8 @@ public class PruebasEmergencia {
                 int afectados = 0;
                 for (int f = 0; f < a.mapa.filas; f++) for (int c = 0; c < a.mapa.cols; c++) {
                     Nodo x = a.mapa.n[f][c], y = b.mapa.n[f][c];
-                    exigir(x.bloqueado == y.bloqueado && x.condicion == y.condicion, "RN-18: " + tipo);
-                    if (x.bloqueado || x.condicion == Condicion.PELIGROSO) afectados++;
+                    exigir(x.bloqueado == y.bloqueado && x.peligroso == y.peligroso && x.danado == y.danado, "RN-18: " + tipo);
+                    if (x.bloqueado || x.peligroso) afectados++;
                     if (tipo == TipoDesastre.FUGA_DE_GAS) exigir(!x.bloqueado, "Gas transitable");
                 }
                 exigir(afectados == i + 1, "RN-20: evolución de " + tipo);

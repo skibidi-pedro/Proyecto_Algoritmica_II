@@ -9,7 +9,6 @@ public class ParametrosSimulacion {
     public double umbral = 8;
     public int capacidad = 2;
     public boolean astar = true;
-    public int esperaRecalculo = 2;
 
     public ParametrosSimulacion copia() {
         ParametrosSimulacion p = new ParametrosSimulacion();
@@ -21,7 +20,6 @@ public class ParametrosSimulacion {
         p.umbral = umbral;
         p.capacidad = capacidad;
         p.astar = astar;
-        p.esperaRecalculo = esperaRecalculo;
         return p;
     }
 }

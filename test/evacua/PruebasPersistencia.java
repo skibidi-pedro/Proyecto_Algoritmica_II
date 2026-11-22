@@ -38,8 +38,10 @@ public class PruebasPersistencia {
 
     static void probarFormatoAmpliado(Path tmp) throws Exception {
         Edificio original = GestorEscenarios.deTexto("#PISO 1\nHP\n#PISO 2\nES\n#PERSONAS\n1 0 0 ADULTO SANO");
-        original.n[0][0].condicion = Condicion.DANADO;
-        original.n[1][0].condicion = Condicion.PELIGROSO;
+        original.n[0][0].danado = true;
+        original.n[1][0].peligroso = true;
+        original.n[1][0].danado = true;
+        original.n[1][0].bloqueoReparable = true;
         original.n[1][0].bloqueado = true;
         Conexion enlace = original.conectar(0, 1, 1, 1, 2.75, 4);
         enlace.condicion = Condicion.PELIGROSO;
@@ -49,8 +51,8 @@ public class PruebasPersistencia {
             original.conexionesExplicitas = explicito;
             GestorEscenarios.guardar(archivo, original);
             Edificio copia = GestorEscenarios.leer(archivo);
-            chk(copia.n[0][0].condicion == Condicion.DANADO && copia.personas.size() == 1
-                    && copia.n[1][0].condicion == Condicion.PELIGROSO && copia.n[1][0].bloqueado,
+            chk(copia.n[0][0].danado && copia.personas.size() == 1
+                    && copia.n[1][0].peligroso && copia.n[1][0].danado && copia.n[1][0].bloqueoReparable && copia.n[1][0].bloqueado,
                     "Condiciones y bloqueo de nodos entre pisos");
             Conexion k = copia.conexiones.get(0);
             chk(k.origen == enlace.origen && k.destino == enlace.destino && k.tiempo == 2.75

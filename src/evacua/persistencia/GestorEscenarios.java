@@ -48,10 +48,14 @@ public class GestorEscenarios {
         for (int f = 0; f < e.filas; f++) {
             for (int c = 0; c < e.cols; c++) {
                 Nodo nodo = e.n[f][c];
-                if (nodo.condicion == Condicion.NORMAL) continue;
+                if (!nodo.danado && !nodo.peligroso && !(nodo.bloqueado && nodo.bloqueoReparable)) continue;
                 if (!hayCondiciones) sb.append("#CONDICIONES\n");
                 hayCondiciones = true;
-                sb.append(posicion(e, f * e.cols + c)).append(' ').append(nodo.condicion).append('\n');
+                sb.append(posicion(e, f * e.cols + c));
+                if (nodo.danado) sb.append(" DANADO");
+                if (nodo.peligroso) sb.append(" PELIGROSO");
+                if (nodo.bloqueado && nodo.bloqueoReparable) sb.append(" REPARABLE");
+                sb.append('\n');
             }
         }
         if (e.conexionesExplicitas) sb.append("#GRAFO_EXPLICITO\n");
@@ -204,10 +208,22 @@ public class GestorEscenarios {
         for (String linea : lineas) {
             try {
                 String[] t = linea.split("\\s+");
-                if (t.length != 2) throw new IllegalArgumentException("Se esperaba posición y condición");
+                if (t.length < 2) throw new IllegalArgumentException("Se esperaba posición y condición");
                 int id = nodo(e, t[0]);
                 if (!vistos.add(id)) throw new IllegalArgumentException("Nodo repetido");
-                e.n[id / e.cols][id % e.cols].condicion = Condicion.valueOf(t[1]);
+                Nodo n = e.n[id / e.cols][id % e.cols];
+                for (int i = 1; i < t.length; i++) {
+                    switch (t[i]) {
+                        case "NORMAL": break;
+                        case "DANADO": n.danado = true; break;
+                        case "PELIGROSO": n.peligroso = true; break;
+                        case "REPARABLE":
+                            if (!n.bloqueado) throw new IllegalArgumentException("Se requiere un bloqueo");
+                            n.bloqueoReparable = true;
+                            break;
+                        default: throw new IllegalArgumentException("Condición desconocida: " + t[i]);
+                    }
+                }
             } catch (IllegalArgumentException ex) {
                 throw new IllegalArgumentException("#CONDICIONES: " + linea + " (" + ex.getMessage() + ")", ex);
             }

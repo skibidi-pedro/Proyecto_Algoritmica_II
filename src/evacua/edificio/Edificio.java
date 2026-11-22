@@ -44,7 +44,7 @@ public class Edificio {
     }
 
     public boolean caminable(int f, int c) {
-        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO && n[f][c].condicion != Condicion.DANADO && !n[f][c].bloqueado;
+        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO && !n[f][c].bloqueado;
     }
 
     public void rect(TipoNodo t, int f0, int c0, int f1, int c1) {
@@ -90,9 +90,7 @@ public class Edificio {
 
     public void eliminarNodo(int f, int c) {
         int id = f * cols + c;
-        n[f][c].tipo = TipoNodo.VACIO;
-        n[f][c].bloqueado = false;
-        n[f][c].condicion = Condicion.NORMAL;
+        n[f][c] = new Nodo();
         idANodo.values().removeIf(v -> v == id);
         conexiones.removeIf(k -> k.origen == id || k.destino == id);
         personas.removeIf(p -> p.f == f && p.c == c);
@@ -101,6 +99,7 @@ public class Edificio {
     public void bloquear(int f, int c, boolean valor) {
         if (n[f][c].tipo == TipoNodo.VACIO) throw new IllegalArgumentException("No hay nodo en (" + f + "," + c + ")");
         n[f][c].bloqueado = valor;
+        n[f][c].bloqueoReparable = false;
     }
 
     public Conexion conectar(int f1, int c1, int f2, int c2, double tiempo, int capacidad) {
@@ -134,7 +133,9 @@ public class Edificio {
         Edificio e = new Edificio(filasPorPiso, cols, nuevosPisos);
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++) {
-                e.n[i][j].condicion = n[i][j].condicion;
+                e.n[i][j].danado = n[i][j].danado;
+                e.n[i][j].peligroso = n[i][j].peligroso;
+                e.n[i][j].bloqueoReparable = n[i][j].bloqueoReparable;
                 e.n[i][j].tipo = n[i][j].tipo;
                 e.n[i][j].bloqueado = n[i][j].bloqueado;
             }

@@ -33,11 +33,7 @@ public class PruebasCongestion {
             if (camina.f != 1 || camina.c != 0) libreDespues |= e.n[1][0].ocupacion == 0;
         }
         chk(camina.evacuada, "la persona rodea la congestion y evacua");
-        chk(camina.historial.recalculos >= 1, "se cuenta el recalculo por congestion: " + camina.historial.recalculos);
-        chk(camina.historial.esperaCuelloBotella >= p.esperaRecalculo, "espera antes de rodear: " + camina.historial.esperaCuelloBotella);
-        boolean dice = false;
-        for (String h : camina.hist) dice |= h.contains("congestion") && h.contains("otro camino");
-        chk(dice, "la linea de tiempo registra el desvio por congestion");
+        chk(camina.historial.esperaCuelloBotella == 0, "el desvío disponible se toma sin esperar");
         chk(!e.personas.get(1).evacuada, "la persona incapacitada sin asistencia no sale");
         chk(m.evacuadas() == 1 && m.salidas.tamano() == 1, "una sola salida en la cola");
 

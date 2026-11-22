@@ -19,7 +19,14 @@ public abstract class AlgoritmoRuta {
     }
 
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas, java.util.function.IntPredicate evitar) {
+        return buscar(e, g, sf, sc, metas, evitar, (a, b) -> false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo) {
         long t0 = System.nanoTime();
+        if (!e.caminable(sf, sc)) return new ResultadoRuta();
         int C = g.cols, total = g.total();
         double[] dist = new double[total];
         Arrays.fill(dist, Double.MAX_VALUE);
@@ -50,9 +57,8 @@ public abstract class AlgoritmoRuta {
             }
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
-                if (a.bloqueada() || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
-                boolean peligro = a.peligrosa() || e.n[nid / C][nid % C].condicion == evacua.edificio.Condicion.PELIGROSO;
-                double nd = dist[id] + a.tiempo * (peligro ? 2 : 1);
+                if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
+                double nd = dist[id] + a.costoEntrada(e.n[nid / C][nid % C]);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;
                     prev[nid] = id;

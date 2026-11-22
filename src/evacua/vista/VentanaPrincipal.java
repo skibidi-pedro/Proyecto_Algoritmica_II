@@ -159,14 +159,9 @@ public class VentanaPrincipal extends JFrame {
                 boton("Comparar escenarios", "Simula dos escenarios y compara resultados", e -> compararEscenarios())));
 
         btnDeshacer = boton("Deshacer (Ctrl+Z)", "Deshace el ultimo cambio al edificio (solo en modo edicion)", e -> deshacer());
-        p.add(grupo("Gestionar edificio (nodos y conexiones)",
+        p.add(grupo("Gestionar edificio",
                 btnDeshacer,
-                tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar"),
-                tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Pinta nodos de tipo habitacion"),
-                tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pinta nodos de tipo pasillo"),
-                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Pinta escaleras. Conectan con la escalera de la misma posicion en el piso de arriba y abajo"),
-                tool("Salida", Herramienta.SALIDA, herramientas, false, "Pinta nodos de tipo salida"),
-                tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Elimina el nodo y las personas sobre el")));
+                tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar")));
 
         cmbTipo = new JComboBox<>(TipoPersona.values());
         cmbSalud = new JComboBox<>(EstadoSalud.values());
@@ -176,7 +171,6 @@ public class VentanaPrincipal extends JFrame {
                         "Clic en un nodo libre para colocar; clic otra vez para quitar")));
 
         p.add(grupo("Bloqueos",
-                boton("Editar conexión", "Seleccione los extremos, tiempo, capacidad y estado", e -> editarConexion()),
                 tool("Estado del nodo", Herramienta.ESTADO, herramientas, false, "Elija la condición de una zona"),
                 tool("Bloquear / desbloquear zonas", Herramienta.BLOQUEO, herramientas, false,
                         "Clic o arrastre sobre nodos. Funciona tambien durante la simulacion")));
@@ -196,7 +190,7 @@ public class VentanaPrincipal extends JFrame {
                 boton("Comparar Dijkstra vs A*", "Compara nodos explorados y tiempo de calculo", e -> compararAlgoritmos())));
 
         JToggleButton calor = new JToggleButton("Ver mapa de calor");
-        calor.setToolTipText("Colorea los nodos segun su ocupacion acumulada");
+        calor.setToolTipText("Colorea los nodos por ocupación actual y, al terminar, por visitas acumuladas");
         calor.addActionListener(e -> {
             verCalor = calor.isSelected();
             grid.repaint();
@@ -460,7 +454,6 @@ public class VentanaPrincipal extends JFrame {
         JTextField lim = new JTextField(String.valueOf(params.limite));
         JTextField umb = new JTextField(String.valueOf(params.umbral));
         JTextField cap = new JTextField(String.valueOf(params.capacidad));
-        JTextField esp = new JTextField(String.valueOf(params.esperaRecalculo));
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
         alg.setSelectedIndex(params.astar ? 0 : 1);
         JPanel f = new JPanel(new GridLayout(0, 2, 6, 6));
@@ -481,8 +474,6 @@ public class VentanaPrincipal extends JFrame {
         f.add(umb);
         f.add(new JLabel("Capacidad por nodo"));
         f.add(cap);
-        f.add(new JLabel("Ticks de espera antes de rodear una congestion"));
-        f.add(esp);
         f.add(new JLabel("Algoritmo de ruta"));
         f.add(alg);
         if (JOptionPane.showConfirmDialog(this, f, "Configurar parametros de simulacion",
@@ -493,8 +484,7 @@ public class VentanaPrincipal extends JFrame {
             int li = Integer.parseInt(lim.getText().trim());
             double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
-            int es = Integer.parseInt(esp.getText().trim());
-            if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1 || es < 1) throw new NumberFormatException();
+            if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
             params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
             params.intensidad = (int) intensidad.getValue();
             params.prob = pr;
@@ -502,7 +492,6 @@ public class VentanaPrincipal extends JFrame {
             params.limite = li;
             params.umbral = um;
             params.capacidad = ca;
-            params.esperaRecalculo = es;
             params.astar = alg.getSelectedIndex() == 0;
             log("Parametros actualizados.");
             actualizarEstado();
@@ -643,13 +632,16 @@ public class VentanaPrincipal extends JFrame {
         long tD = 0, tA = 0;
         int n = 0;
         sb.append(String.format("%-34s %-22s %-22s%n", "Persona", "Dijkstra (expl./costo)", "A* (expl./costo)"));
+        List<int[]> metas = m.salidas();
         for (Persona p : m.personas) {
             if (p.evacuada) continue;
-            ResultadoRuta d = BuscadorRutas.buscar(m, p.f, p.c, m.salidas(), false);
-            ResultadoRuta a = BuscadorRutas.buscar(m, p.f, p.c, m.salidas(), true);
+            ResultadoRuta d = motor == null ? BuscadorRutas.buscar(m, p.f, p.c, metas, false)
+                    : motor.evaluarRuta(p, metas, false);
+            ResultadoRuta a = motor == null ? BuscadorRutas.buscar(m, p.f, p.c, metas, true)
+                    : motor.evaluarRuta(p, metas, true);
             sb.append(String.format("%-34s %-22s %-22s%n", p.etiqueta(),
-                    d.explorados + " / " + (d.ruta == null ? "sin ruta" : (int) d.costo),
-                    a.explorados + " / " + (a.ruta == null ? "sin ruta" : (int) a.costo)));
+                    d.explorados + " / " + (d.ruta == null ? "sin ruta" : d.costo),
+                    a.explorados + " / " + (a.ruta == null ? "sin ruta" : a.costo)));
             eD += d.explorados;
             eA += a.explorados;
             tD += d.nanos;
