@@ -22,8 +22,12 @@ public class Grafo {
             this.conexion = conexion;
         }
 
+        public boolean peligrosa() {
+            return conexion != null && conexion.condicion == Condicion.PELIGROSO;
+        }
+
         public boolean bloqueada() {
-            return conexion != null && conexion.bloqueada;
+            return conexion != null && (conexion.bloqueada || conexion.condicion == Condicion.DANADO);
         }
     }
 
@@ -76,6 +80,11 @@ public class Grafo {
 
     public static Grafo desde(Edificio e) {
         return new Grafo(e);
+    }
+
+    public Arista arista(int origen, int destino) {
+        for (Arista a : ady[origen]) if (a.destino == destino) return a;
+        return null;
     }
 
     public int total() {

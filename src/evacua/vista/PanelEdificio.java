@@ -54,7 +54,22 @@ public class PanelEdificio extends JPanel {
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
         if (click && v.motor == null && v.herramienta != Herramienta.NINGUNA) v.guardarParaDeshacer();
-        if (v.herramienta == Herramienta.BLOQUEO) {
+        if (v.herramienta == Herramienta.ESTADO) {
+            if (!click || nd.tipo == TipoNodo.VACIO) return;
+            boolean corriendo = v.timer.isRunning();
+            v.timer.stop();
+            evacua.edificio.Condicion condicion = (evacua.edificio.Condicion) JOptionPane.showInputDialog(
+                    v, "Condición del nodo", "Editar zona", JOptionPane.QUESTION_MESSAGE,
+                    null, evacua.edificio.Condicion.values(), nd.condicion);
+            if (condicion != null) {
+                nd.condicion = condicion;
+                if (v.motor != null) {
+                    if (condicion == evacua.edificio.Condicion.DANADO) v.motor.alBloquear(f, c);
+                    else v.motor.recalcularTodas();
+                }
+            }
+            if (corriendo) v.timer.start();
+        } else if (v.herramienta == Herramienta.BLOQUEO) {
             if (nd.tipo == TipoNodo.VACIO) return;
             if (valorArrastre == null) valorArrastre = !nd.bloqueado;
             if (nd.bloqueado != valorArrastre) {
@@ -74,9 +89,7 @@ public class PanelEdificio extends JPanel {
                 case ESCALERA: nd.tipo = TipoNodo.ESCALERA; break;
                 case SALIDA: nd.tipo = TipoNodo.SALIDA; break;
                 case BORRAR:
-                    nd.tipo = TipoNodo.VACIO;
-                    nd.bloqueado = false;
-                    m.personas.removeIf(p -> p.f == f && p.c == c);
+                    m.eliminarNodo(f, c);
                     break;
                 case PERSONA:
                     if (!click) break;
@@ -133,6 +146,10 @@ public class PanelEdificio extends JPanel {
                 g.drawRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 g.setColor(new Color(60, 60, 60, 160));
                 g.drawString(String.valueOf(nd.tipo.letra), x + CELL / 2 - 5, y + CELL / 2 + 5);
+                if (nd.condicion != evacua.edificio.Condicion.NORMAL) {
+                    g.setColor(Color.BLACK);
+                    g.drawString(nd.condicion == evacua.edificio.Condicion.DANADO ? "D" : "!", x + 3, y + 14);
+                }
                 if (nd.bloqueado) {
                     g.setColor(new Color(40, 40, 40, 190));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
@@ -143,6 +160,23 @@ public class PanelEdificio extends JPanel {
                     g.setStroke(new BasicStroke(1));
                 }
             }
+        }
+
+        if (v.motor != null && !v.motor.terminado) {
+            for (Persona p : m.personas) {
+                if (p.evacuada) continue;
+                g.setColor(p.tipo.color.darker());
+                g.setStroke(new BasicStroke(2));
+                int f = p.f, c = p.c;
+                for (int[] siguiente : p.ruta) {
+                    if (m.piso(f) == piso && m.piso(siguiente[0]) == piso)
+                        g.drawLine(c * CELL + CELL / 2, (f - base) * CELL + CELL / 2,
+                                siguiente[1] * CELL + CELL / 2, (siguiente[0] - base) * CELL + CELL / 2);
+                    f = siguiente[0];
+                    c = siguiente[1];
+                }
+            }
+            g.setStroke(new BasicStroke(1));
         }
 
         Map<Integer, Integer> contador = new HashMap<>();

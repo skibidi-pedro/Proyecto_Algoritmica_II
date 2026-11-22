@@ -176,6 +176,8 @@ public class VentanaPrincipal extends JFrame {
                         "Clic en un nodo libre para colocar; clic otra vez para quitar")));
 
         p.add(grupo("Bloqueos",
+                boton("Editar conexión", "Seleccione los extremos, tiempo, capacidad y estado", e -> editarConexion()),
+                tool("Estado del nodo", Herramienta.ESTADO, herramientas, false, "Elija la condición de una zona"),
                 tool("Bloquear / desbloquear zonas", Herramienta.BLOQUEO, herramientas, false,
                         "Clic o arrastre sobre nodos. Funciona tambien durante la simulacion")));
 
@@ -355,15 +357,41 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
+    void editarConexion() {
+        boolean corriendo = timer.isRunning();
+        timer.stop();
+        try {
+            EditorConexion.abrir(this);
+        } finally {
+            if (corriendo) timer.start();
+        }
+    }
+
     void iniciar() {
         if (mapa.personas.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Registre al menos una persona antes de iniciar.", "Sin personas", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        evacua.simulacion.TipoDesastre elegido = (evacua.simulacion.TipoDesastre) JOptionPane.showInputDialog(
+                this, "Tipo de emergencia", "Iniciar simulación", JOptionPane.QUESTION_MESSAGE, null,
+                evacua.simulacion.TipoDesastre.values(), params.desastre);
+        if (elegido == null) return;
+        params.desastre = elegido;
         timer.stop();
         Edificio copia = mapa.copia();
         motor = new MotorSimulacion(copia, params.copia(), this::log);
-        motor.alTerminar = this::guardarSalidasCsv;
+        motor.alTerminar = () -> {
+            guardarSalidasCsv();
+            try {
+                java.nio.file.Path base = new File("datos", "reportes").toPath();
+                Files.createDirectories(base);
+                File carpeta = Files.createTempDirectory(base, "simulacion-").toFile();
+                int cantidad = ExportadorIndividual.exportarTodos(motor, carpeta);
+                log(cantidad + " reportes individuales guardados en " + carpeta);
+            } catch (java.io.IOException ex) {
+                log("No se pudieron guardar los reportes individuales: " + ex.getMessage());
+            }
+        };
         motor.iniciar();
         grid.ajustarTamano();
         if (chkTiempoReal.isSelected()) {
@@ -436,6 +464,13 @@ public class VentanaPrincipal extends JFrame {
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
         alg.setSelectedIndex(params.astar ? 0 : 1);
         JPanel f = new JPanel(new GridLayout(0, 2, 6, 6));
+        JComboBox<evacua.simulacion.TipoDesastre> desastre = new JComboBox<>(evacua.simulacion.TipoDesastre.values());
+        desastre.setSelectedItem(params.desastre);
+        JSpinner intensidad = new JSpinner(new SpinnerNumberModel(params.intensidad, 1, 10, 1));
+        f.add(new JLabel("Desastre"));
+        f.add(desastre);
+        f.add(new JLabel("Intensidad (1 a 10)"));
+        f.add(intensidad);
         f.add(new JLabel("Probabilidad de evento por tick (0-1)"));
         f.add(prob);
         f.add(new JLabel("Semilla aleatoria"));
@@ -459,7 +494,9 @@ public class VentanaPrincipal extends JFrame {
             double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
             int es = Integer.parseInt(esp.getText().trim());
-            if (pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1 || es < 1) throw new NumberFormatException();
+            if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1 || es < 1) throw new NumberFormatException();
+            params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            params.intensidad = (int) intensidad.getValue();
             params.prob = pr;
             params.semilla = se;
             params.limite = li;

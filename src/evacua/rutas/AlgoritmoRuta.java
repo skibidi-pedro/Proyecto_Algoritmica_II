@@ -51,7 +51,8 @@ public abstract class AlgoritmoRuta {
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
                 if (a.bloqueada() || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
-                double nd = dist[id] + a.tiempo;
+                boolean peligro = a.peligrosa() || e.n[nid / C][nid % C].condicion == evacua.edificio.Condicion.PELIGROSO;
+                double nd = dist[id] + a.tiempo * (peligro ? 2 : 1);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;
                     prev[nid] = id;

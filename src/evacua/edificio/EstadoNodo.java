@@ -1,5 +1,5 @@
 package evacua.edificio;
 
 public enum EstadoNodo {
-    LIBRE, CONGESTIONADO, BLOQUEADO
+    LIBRE, CONGESTIONADO, BLOQUEADO, DANADO, PELIGROSO
 }

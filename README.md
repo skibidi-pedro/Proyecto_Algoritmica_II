@@ -203,7 +203,7 @@ Proyecto_Algoritmica_II/
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
-- *(Pendiente)* Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, último punto).
+- Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, último punto).
 - Control de capacidad de nodos (Congestionado, mayor tiempo de recorrido).
 - *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
 - *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
@@ -375,7 +375,7 @@ Responsable de **quién** se evacua, **cómo se comporta** y del **bucle de simu
 
 Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, estrés y la cola `salidas`), registra la posición de partida en la bitácora y calcula la primera ruta de cada uno con `asignarRuta`. Después, en cada `paso()`:
 
-1. `tick++`. Con probabilidad `prob` llama a `generarEvento()`: colapsa un pasillo, cuenta con `contarBloqueo` a quién le afecta (el nodo está en su `ruta`) y llama a `recalcularTodas()`.
+1. `tick++`. El desastre seleccionado usa la probabilidad y la semilla del motor. Cuando bloquea una zona, el motor cuenta a las personas afectadas y recalcula las rutas.
 2. Pone `ocupacion = 0` en todos los nodos y la recuenta con las personas que siguen dentro. Esa ocupación es la que lee el mapa de calor en vivo.
 3. Para cada persona no evacuada calcula la velocidad: `tipo.vel × salud.vel`; si el estrés supera el umbral, ×0.6. Si hay un nodo bloqueado al lado, el estrés sube 0.1. Si la velocidad es 0, el estrés sube 0.3 y se pasa a la siguiente.
 4. Suma la velocidad a `acum`; por cada unidad completa intenta dar un paso:
@@ -385,7 +385,7 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
    - **Si no, avanza**: actualiza `(f, c)`, quita el nodo de la ruta, `pasos++`, escribe en `hist` y en la bitácora (`ControlCapacidad.estado`) y baja el estrés 0.2 si se movió.
    - Si el nodo es **salida** y no tiene objetivo de rescate, marca `evacuada`, guarda `tEvac` y hace `salidas.encolar(new RegistroSalida(...))`.
 5. Suma 1 a `visitas` de la casilla de cada persona que sigue dentro (o que acaba de salir). Esa es la ocupación acumulada del mapa de calor final.
-6. Si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv`.
+6. Si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv` y los reportes individuales (RN-14).
 
 **4. Cómo se conecta con los datos**
 
@@ -409,26 +409,18 @@ Pisos: el edificio puede tener varios pisos. El edificio original es el **piso 1
 
 Limitaciones conocidas:
 - La interfaz dibuja un piso a la vez como cuadrícula: las conexiones no se dibujan como líneas.
-- El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. La capacidad de las conexiones se valida y se guarda, pero la congestión se controla por nodo.
+- El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. Cada cruce consume un cupo de la conexión durante el tick.
 - La "base de datos" es un almacén embebido en archivos (carpeta `datos/`), sin servidor.
-- La interfaz no tiene pantallas para crear conexiones: se hacen por código (`Edificio.conectar`) .
+- El formato de cuadrícula original conserva personas y bloqueos de nodos. Los atributos de las conexiones y las condiciones adicionales solo se mantienen en memoria.
 
-### 7.1 Pendiente por implementar
+### 7.1 Funcionalidades integradas
 
-Lo que todavía falta para cumplir el documento por completo:
-
-1. **Dibujar las rutas de evacuación (2.8).** La interfaz dibuja personas, bloqueos y mapa de calor, pero no la ruta asignada a cada persona. Dibujar la ruta en el piso que se está viendo. *(Integrante 2, `vista`)*
-2. **Estados dañado y peligroso (2.4).** Solo existe "bloqueado". Agregar los estados dañado y peligroso para nodos y conexiones, y poder bloquear conexiones desde la interfaz (hoy solo por código). *(Integrante 2)*
-3. **Editar conexiones desde la interfaz (2.1).** Definir el tiempo de recorrido y la capacidad de cada conexión con una pantalla (hoy solo se hace por código con `Edificio.conectar`). *(Integrante 2, `vista`)*
-4. **Exportar los reportes individuales al terminar (RN-14).** Hoy se exportan con un botón; deben generarse automáticamente cuando termina la simulación, haya evacuado o no cada persona. *(Integrante 1)*
-5. **Capacidad de las conexiones (RN-03).** Se valida y se guarda, pero la simulación solo controla la capacidad por nodo. Hacer que también limite cuántas personas cruzan una conexión a la vez. *(Integrante 3 con Integrante 2)*
-6. **Tipos de desastre (módulo 12, RN-20).** Elegir el desastre al iniciar la simulación. Propuesta:
-   - **Terremoto:** colapsa pasillos y escaleras al azar, con réplicas; mucho estrés al inicio; las personas se mueven más lento.
-   - **Incendio:** empieza en un nodo y se propaga a los vecinos cada cierto número de pasos; bloquea los nodos quemados; el estrés sube por cercanía al fuego.
-   - **Inundación:** el agua sube desde el piso 1 y bloquea los nodos de los pisos bajos poco a poco; empuja a la gente hacia arriba.
-   - **Fuga de gas:** marca una zona como peligrosa que crece con el tiempo; no la bloquea del todo, pero eleva el estrés y la velocidad baja.
-
-   Estructura sugerida: `simulacion/Desastre.java` (clase base con `paso(motor)`), una clase por tipo, `TipoDesastre.java` (enum para el selector) y una lista desplegable en "Configurar parámetros de simulación". Cada desastre lleva su probabilidad, intensidad y semilla. *(Integrante 3, con `vista` del Integrante 2 para el selector)*
+1. **Rutas por piso (2.8).** La cuadrícula dibuja los tramos pendientes de cada persona con el color de su tipo. Al cambiar de piso se muestran los tramos correspondientes.
+2. **Zonas y conexiones (RN-04, RN-05, RN-16).** «Estado del nodo» marca una zona como normal, dañada (D) o peligrosa (!). Un daño o bloqueo impide el paso. El peligro permite el paso y duplica el costo de entrada para Dijkstra y A*. El bloqueo se puede activar independientemente de la condición.
+3. **Editor de conexiones (2.1).** En «Editar conexión» se eligen ambos extremos por piso y coordenadas, tiempo positivo, capacidad, condición y bloqueo. Editar un enlace de cuadrícula conserva los demás vecinos. Los cambios en simulación recalculan las rutas de la copia activa.
+4. **Reportes automáticos (RN-14).** Al terminar desde Swing se crea una carpeta por ejecución en `datos/reportes/`, con un archivo por persona. Incluye a quienes alcanzaron el tiempo límite. La exportación manual sigue disponible.
+5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
+6. **Desastres (RN-07, RN-18, RN-20).** Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
 
 Formato `.txt` (cuadrícula, ver `recursos/planos/edificio.txt`):
 ```
@@ -451,6 +443,7 @@ java -cp out evacua.PruebasPlanos
 java -cp out evacua.PruebasPersistencia
 java -cp out evacua.PruebasPisos
 java -cp out evacua.PruebasCongestion
+java -cp out evacua.PruebasEmergencia
 java -cp out evacua.Main
 ```
 En NetBeans: crear un proyecto Java con `src` como carpeta de fuentes y ejecutar `evacua.Main`.

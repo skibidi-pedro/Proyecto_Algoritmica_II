@@ -1,6 +1,8 @@
 package evacua.simulacion;
 
 public class ParametrosSimulacion {
+    public TipoDesastre desastre = TipoDesastre.CLASICO;
+    public int intensidad = 1;
     public double prob = 0.03;
     public long semilla = 42;
     public int limite = 300;
@@ -11,6 +13,8 @@ public class ParametrosSimulacion {
 
     public ParametrosSimulacion copia() {
         ParametrosSimulacion p = new ParametrosSimulacion();
+        p.desastre = desastre;
+        p.intensidad = intensidad;
         p.prob = prob;
         p.semilla = semilla;
         p.limite = limite;

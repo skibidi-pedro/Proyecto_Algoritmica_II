@@ -21,6 +21,8 @@ public class MotorSimulacion {
     public final ParametrosSimulacion params;
     public final Random rnd;
     public final java.util.function.Consumer<String> log;
+    public evacua.edificio.Grafo grafo;
+    private Desastre desastre;
     public int tick;
     public boolean terminado;
 
@@ -37,6 +39,8 @@ public class MotorSimulacion {
     }
 
     public void iniciar() {
+        grafo = evacua.edificio.Grafo.desde(mapa);
+        desastre = params.desastre.crear();
         tick = 0;
         terminado = false;
         salidas = new Cola<>();
@@ -53,6 +57,7 @@ public class MotorSimulacion {
             p.hist.add("t=0 inicio en (" + p.f + "," + p.c + ")");
             p.bitacora.registrar(0, p.f, p.c, ControlCapacidad.estado(mapa.n[p.f][p.c], params.capacidad));
         }
+        desastre.iniciar(this);
         for (Persona p : mapa.personas) asignarRuta(p);
         log.accept("Emergencia iniciada con " + mapa.personas.size() + " personas ("
                 + (params.astar ? "A*" : "Dijkstra") + ", semilla " + params.semilla + ").");
@@ -74,7 +79,16 @@ public class MotorSimulacion {
             r = null;
         }
         if (p.objetivo == null) {
-            r = RecalculadorRutas.desdePosicion(mapa, p, mapa.salidas(), params.astar);
+            List<int[]> salidas = mapa.salidas();
+            r = RecalculadorRutas.desdePosicion(mapa, p, salidas, params.astar);
+            if (desastre instanceof Inundacion && ((Inundacion) desastre).pisoAfectado >= mapa.piso(p.f)) {
+                List<int[]> altas = new ArrayList<>(salidas);
+                altas.removeIf(s -> mapa.piso(s[0]) <= ((Inundacion) desastre).pisoAfectado);
+                if (!altas.isEmpty()) {
+                    ResultadoRuta alternativa = RecalculadorRutas.desdePosicion(mapa, p, altas, params.astar);
+                    if (alternativa.ruta != null) r = alternativa;
+                }
+            }
             exploradosTotal += r.explorados;
         }
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);
@@ -108,14 +122,7 @@ public class MotorSimulacion {
     }
 
     public void generarEvento() {
-        int[] q = EventoAleatorio.colapsarPasillo(mapa, rnd);
-        if (q == null) {
-            log.accept("No hay pasillos disponibles para el evento aleatorio.");
-            return;
-        }
-        log.accept("t=" + tick + " EVENTO: colapso del pasillo (" + q[0] + "," + q[1] + ").");
-        contarBloqueo(q[0], q[1]);
-        recalcularTodas();
+        desastre.evento(this);
     }
 
     public void alBloquear(int f, int c) {
@@ -138,7 +145,7 @@ public class MotorSimulacion {
         int[][] d = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
         for (int[] x : d) {
             int nf = p.f + x[0], nc = p.c + x[1];
-            if (mapa.dentro(nf, nc) && mapa.n[nf][nc].tipo != TipoNodo.VACIO && mapa.n[nf][nc].bloqueado) return true;
+            if (mapa.dentro(nf, nc) && mapa.piso(nf) == mapa.piso(p.f) && mapa.n[nf][nc].tipo != TipoNodo.VACIO && mapa.n[nf][nc].bloqueado) return true;
         }
         return false;
     }
@@ -158,7 +165,9 @@ public class MotorSimulacion {
     public boolean paso() {
         if (terminado) return false;
         tick++;
-        if (rnd.nextDouble() < params.prob) generarEvento();
+        desastre.paso(this);
+        // RN-03: ambos sentidos consumen el mismo cupo durante el tick.
+        java.util.Map<Long, Integer> cruces = new java.util.HashMap<>();
         for (Nodo[] fila : mapa.n) for (Nodo nd : fila) nd.ocupacion = 0;
         for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion++;
 
@@ -166,8 +175,13 @@ public class MotorSimulacion {
             if (p.evacuada) continue;
             double v = p.tipo.vel * p.salud.vel;
             if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : 0;
+            v *= desastre.velocidad(this, p);
+            if (mapa.n[p.f][p.c].condicion == evacua.edificio.Condicion.PELIGROSO) {
+                p.aumentarEstres(params.intensidad);
+                v *= 0.65;
+            }
             if (NivelEstres.supera(p.estres, params.umbral)) v *= 0.6;
-            if (cercaDePeligro(p)) p.aumentarEstres(0.1);
+            if (cercaDePeligro(p)) p.aumentarEstres(0.1 * params.intensidad);
             if (v <= 0) {
                 p.aumentarEstres(0.3);
                 continue;
@@ -186,7 +200,9 @@ public class MotorSimulacion {
                 }
                 int[] sig = p.ruta.get(0);
                 Nodo ns = mapa.n[sig[0]][sig[1]];
-                if (ns.bloqueado) {
+                int origen = p.f * mapa.cols + p.c, destino = sig[0] * mapa.cols + sig[1];
+                evacua.edificio.Grafo.Arista arista = grafo.arista(origen, destino);
+                if (!mapa.caminable(sig[0], sig[1]) || arista == null || arista.bloqueada()) {
                     p.hist.add("t=" + tick + " ruta bloqueada en (" + sig[0] + "," + sig[1] + "), recalcula");
                     p.historial.recalculos++;
                     p.historial.bloqueosSufridos++;
@@ -201,6 +217,17 @@ public class MotorSimulacion {
                     if (p.esperando >= params.esperaRecalculo && !p.recalculoPorCongestion) rodearCongestion(p, sig);
                     break;
                 }
+                long enlace = (long) Math.min(origen, destino) * grafo.total() + Math.max(origen, destino);
+                int usados = cruces.getOrDefault(enlace, 0);
+                if (usados >= arista.capacidad) {
+                    ns.esperas++;
+                    p.historial.esperaCuelloBotella++;
+                    p.aumentarEstres(1);
+                    p.hist.add("t=" + tick + " espera por capacidad de la conexion");
+                    break;
+                }
+                cruces.put(enlace, usados + 1);
+                if (arista.peligrosa()) p.aumentarEstres(params.intensidad);
                 mapa.n[p.f][p.c].ocupacion--;
                 p.f = sig[0];
                 p.c = sig[1];
@@ -211,7 +238,7 @@ public class MotorSimulacion {
                 p.recalculoPorCongestion = false;
                 movio = true;
                 p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
-                    p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
+                p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
                 if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null) {
                     p.evacuada = true;
                     p.tEvac = tick;

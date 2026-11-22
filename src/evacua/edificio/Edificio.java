@@ -44,7 +44,7 @@ public class Edificio {
     }
 
     public boolean caminable(int f, int c) {
-        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO && !n[f][c].bloqueado;
+        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO && n[f][c].condicion != Condicion.DANADO && !n[f][c].bloqueado;
     }
 
     public void rect(TipoNodo t, int f0, int c0, int f1, int c1) {
@@ -92,6 +92,7 @@ public class Edificio {
         int id = f * cols + c;
         n[f][c].tipo = TipoNodo.VACIO;
         n[f][c].bloqueado = false;
+        n[f][c].condicion = Condicion.NORMAL;
         idANodo.values().removeIf(v -> v == id);
         conexiones.removeIf(k -> k.origen == id || k.destino == id);
         personas.removeIf(p -> p.f == f && p.c == c);
@@ -106,8 +107,9 @@ public class Edificio {
         if (!dentro(f1, c1) || !dentro(f2, c2) || n[f1][c1].tipo == TipoNodo.VACIO || n[f2][c2].tipo == TipoNodo.VACIO)
             throw new IllegalArgumentException("Las conexiones deben unir dos nodos existentes.");
         int a = f1 * cols + c1, b = f2 * cols + c2;
-        conexiones.removeIf(k -> (k.origen == a && k.destino == b) || (k.origen == b && k.destino == a));
+        if (a == b) throw new IllegalArgumentException("Elija dos nodos distintos.");
         Conexion k = new Conexion("C" + a + "_" + b, a, b, tiempo, capacidad);
+        conexiones.removeIf(otra -> (otra.origen == a && otra.destino == b) || (otra.origen == b && otra.destino == a));
         conexiones.add(k);
         return k;
     }
@@ -132,6 +134,7 @@ public class Edificio {
         Edificio e = new Edificio(filasPorPiso, cols, nuevosPisos);
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++) {
+                e.n[i][j].condicion = n[i][j].condicion;
                 e.n[i][j].tipo = n[i][j].tipo;
                 e.n[i][j].bloqueado = n[i][j].bloqueado;
             }
@@ -139,6 +142,7 @@ public class Edificio {
         e.conexionesExplicitas = conexionesExplicitas;
         for (Conexion k : conexiones) {
             Conexion nk = new Conexion(k.id, k.origen, k.destino, k.tiempo, k.capacidad);
+            nk.condicion = k.condicion;
             nk.bloqueada = k.bloqueada;
             e.conexiones.add(nk);
         }
