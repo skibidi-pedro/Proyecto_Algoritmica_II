@@ -1,5 +1,7 @@
 package evacua.persistencia;
 
+import evacua.edificio.Condicion;
+import evacua.edificio.Conexion;
 import evacua.edificio.Edificio;
 import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
@@ -13,6 +15,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class GestorEscenarios {
     private GestorEscenarios() {
@@ -40,6 +44,23 @@ public class GestorEscenarios {
                 sb.append(' ').append(p.c).append(' ').append(p.tipo.name()).append(' ').append(p.salud.name()).append('\n');
             }
         }
+        boolean hayCondiciones = false;
+        for (int f = 0; f < e.filas; f++) {
+            for (int c = 0; c < e.cols; c++) {
+                Nodo nodo = e.n[f][c];
+                if (nodo.condicion == Condicion.NORMAL) continue;
+                if (!hayCondiciones) sb.append("#CONDICIONES\n");
+                hayCondiciones = true;
+                sb.append(posicion(e, f * e.cols + c)).append(' ').append(nodo.condicion).append('\n');
+            }
+        }
+        if (e.conexionesExplicitas) sb.append("#GRAFO_EXPLICITO\n");
+        if (!e.conexiones.isEmpty()) sb.append("#CONEXIONES\n");
+        for (Conexion k : e.conexiones) {
+            sb.append(posicion(e, k.origen)).append(' ').append(posicion(e, k.destino)).append(' ')
+                    .append(k.tiempo).append(' ').append(k.capacidad).append(' ').append(k.condicion)
+                    .append(' ').append(k.bloqueada ? "BLOQUEADA" : "ABIERTA").append('\n');
+        }
         return sb.toString();
     }
 
@@ -52,6 +73,8 @@ public class GestorEscenarios {
     }
 
     public static void guardar(File f, Edificio e) throws IOException {
+        List<String> errores = validarParaGuardar(e);
+        if (!errores.isEmpty()) throw new IllegalArgumentException(String.join(" ", errores));
         Files.write(f.toPath(), aTexto(e, true).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -62,7 +85,7 @@ public class GestorEscenarios {
             for (int j = 0; j < e.cols; j++) if (e.n[i][j].tipo == TipoNodo.SALIDA) salida = true;
         if (!salida) err.add("El edificio necesita al menos una salida.");
         for (Persona p : e.personas)
-            if (!e.dentro(p.f, p.c) || e.n[p.f][p.c].tipo == TipoNodo.VACIO)
+            if (!e.dentro(p.f, p.c) || e.n[p.f][p.c].tipo == TipoNodo.VACIO || e.n[p.f][p.c].bloqueado)
                 err.add(p.etiqueta() + " no esta ubicada en un nodo valido.");
         return err;
     }
@@ -72,14 +95,29 @@ public class GestorEscenarios {
         List<List<String>> pisos = new ArrayList<>();
         List<String> actual = new ArrayList<>();
         List<String> personas = new ArrayList<>();
+        List<String> condiciones = new ArrayList<>();
+        List<String> conexiones = new ArrayList<>();
+        List<String> registros = null;
+        boolean explicitas = false;
         for (String raw : lineas) {
             String ln = raw.trim();
             if (ln.isEmpty()) continue;
             if (ln.toUpperCase().startsWith("#PISO") || ln.startsWith("---")) {
+                registros = null;
                 if (!actual.isEmpty()) pisos.add(actual);
                 actual = new ArrayList<>();
+            } else if (ln.equals("#PERSONAS")) {
+                registros = personas;
+            } else if (ln.equals("#CONDICIONES")) {
+                registros = condiciones;
+            } else if (ln.equals("#CONEXIONES")) {
+                registros = conexiones;
+            } else if (ln.equals("#GRAFO_EXPLICITO")) {
+                explicitas = true;
             } else if (ln.startsWith("#")) {
                 continue;
+            } else if (registros != null) {
+                registros.add(ln);
             } else if (ln.matches("\\S+") && personas.isEmpty()) {
                 actual.add(ln);
             } else {
@@ -115,6 +153,8 @@ public class GestorEscenarios {
             }
         }
         if (!haySalida) throw new IllegalArgumentException("El plano debe tener al menos una salida (S).");
+        m.conexionesExplicitas = explicitas;
+        leerConexiones(m, conexiones);
         for (String ln : personas) {
             String[] tk = ln.split("\\s+");
             int f, c;
@@ -135,6 +175,64 @@ public class GestorEscenarios {
                 throw new IllegalArgumentException("La persona en (" + f + "," + c + ") no esta sobre un nodo libre.");
             m.agregar(tp, es, f, c);
         }
+        // Una zona puede haber sufrido daños después de colocar a sus ocupantes.
+        leerCondiciones(m, condiciones);
         return m;
+    }
+
+    private static String posicion(Edificio e, int id) {
+        int f = id / e.cols;
+        return (e.piso(f) + 1) + ":" + (f % e.filasPorPiso) + ":" + (id % e.cols);
+    }
+
+    private static int nodo(Edificio e, String posicion) {
+        String[] partes = posicion.split(":", -1);
+        if (partes.length != 3) throw new IllegalArgumentException("Se esperaba piso:fila:columna");
+        int piso = Integer.parseInt(partes[0]);
+        int fila = Integer.parseInt(partes[1]);
+        int col = Integer.parseInt(partes[2]);
+        if (piso < 1 || piso > e.pisos || fila < 0 || fila >= e.filasPorPiso || col < 0 || col >= e.cols)
+            throw new IllegalArgumentException("Coordenada fuera del plano: " + posicion);
+        int f = (piso - 1) * e.filasPorPiso + fila;
+        if (e.n[f][col].tipo == TipoNodo.VACIO)
+            throw new IllegalArgumentException("Celda vacía: " + posicion);
+        return f * e.cols + col;
+    }
+
+    private static void leerCondiciones(Edificio e, List<String> lineas) {
+        Set<Integer> vistos = new HashSet<>();
+        for (String linea : lineas) {
+            try {
+                String[] t = linea.split("\\s+");
+                if (t.length != 2) throw new IllegalArgumentException("Se esperaba posición y condición");
+                int id = nodo(e, t[0]);
+                if (!vistos.add(id)) throw new IllegalArgumentException("Nodo repetido");
+                e.n[id / e.cols][id % e.cols].condicion = Condicion.valueOf(t[1]);
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("#CONDICIONES: " + linea + " (" + ex.getMessage() + ")", ex);
+            }
+        }
+    }
+
+    private static void leerConexiones(Edificio e, List<String> lineas) {
+        Set<String> vistas = new HashSet<>();
+        for (String linea : lineas) {
+            try {
+                String[] t = linea.split("\\s+");
+                if (t.length != 6) throw new IllegalArgumentException("Se esperaban seis campos");
+                int a = nodo(e, t[0]), b = nodo(e, t[1]);
+                if (!vistas.add(Math.min(a, b) + ":" + Math.max(a, b)))
+                    throw new IllegalArgumentException("Conexión repetida");
+                Condicion condicion = Condicion.valueOf(t[4]);
+                if (!t[5].equals("ABIERTA") && !t[5].equals("BLOQUEADA"))
+                    throw new IllegalArgumentException("Se esperaba ABIERTA o BLOQUEADA");
+                Conexion k = e.conectar(a / e.cols, a % e.cols, b / e.cols, b % e.cols,
+                        Double.parseDouble(t[2]), Integer.parseInt(t[3]));
+                k.condicion = condicion;
+                k.bloqueada = t[5].equals("BLOQUEADA");
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("#CONEXIONES: " + linea + " (" + ex.getMessage() + ")", ex);
+            }
+        }
     }
 }

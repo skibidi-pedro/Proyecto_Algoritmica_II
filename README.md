@@ -326,7 +326,7 @@ Responsable del **modelo del edificio**, de **encontrar caminos** y de lo que el
 - Edición: `crearNodo`, `modificarNodo`, `eliminarNodo`, `bloquear(f, c, valor)`, `rect` (pinta un rectángulo), `agregar` (una persona), y para conexiones explícitas `conectar`, `desconectar`, `bloquearConexion`. `copia()` duplica todo para simular sin tocar el original; `copiaConPisos(n)` lo hace con más pisos (botón "+ Agregar piso").
 - `Grafo.desde(edificio)` arma la lista de adyacencia `ady[]` con `Arista` (destino, tiempo, capacidad):
   - **Modo cuadrícula** (por defecto): vecinos arriba, abajo, izquierda y derecha dentro del mismo piso, con tiempo 1 (3 si el destino es escalera). Las escaleras unen la misma fila y columna de pisos consecutivos, con tiempo 3.
-  - **Modo grafo** (`conexionesExplicitas = true`, solo se activa por código; los `.txt` siempre cargan en modo cuadrícula): solo cuentan las `Conexion` creadas con `conectar`. Cada una es bidireccional, con tiempo y capacidad.
+  - **Modo grafo** (`conexionesExplicitas = true`, se conserva en el archivo con `#GRAFO_EXPLICITO`): solo cuentan las `Conexion` creadas con `conectar`. Cada una es bidireccional, con tiempo y capacidad.
   - Los bloqueos no se copian al grafo: se leen en vivo (`Nodo.bloqueado`, `Arista.bloqueada()`), así un bloqueo nuevo se nota sin reconstruirlo.
   - `factorTiempo` es el menor tiempo por unidad de distancia del grafo; lo usa A* para no sobreestimar.
 - `HistorialEdicion` (sobre `Pila`): `guardar(actual)` antes de cada cambio, `deshacer()` devuelve el edificio anterior y `puedeDeshacer()`.
@@ -411,7 +411,7 @@ Limitaciones conocidas:
 - La interfaz dibuja un piso a la vez como cuadrícula: las conexiones no se dibujan como líneas.
 - El tiempo de una conexión decide la ruta, pero la persona avanza un nodo por unidad de velocidad. Cada cruce consume un cupo de la conexión durante el tick.
 - La "base de datos" es un almacén embebido en archivos (carpeta `datos/`), sin servidor.
-- El formato de cuadrícula original conserva personas y bloqueos de nodos. Los atributos de las conexiones y las condiciones adicionales solo se mantienen en memoria.
+- El formato de cuadrícula original conserva personas y bloqueos de nodos. Los escenarios con conexiones editadas o zonas dañadas o peligrosas añaden las secciones opcionales descritas en 7.1.
 
 ### 7.1 Funcionalidades integradas
 
@@ -432,6 +432,24 @@ H..P.E.
 #PERSONAS    <- (opcional) luego líneas: fila columna TIPO SALUD  (un piso)
 1 0 1 ADULTO SANO   <- o: piso fila columna TIPO SALUD (varios pisos; el piso empieza en 1)
 ```
+
+Los planos antiguos siguen abriendo sin conversión. Este ejemplo completo muestra las secciones opcionales:
+
+```text
+#PISO 1
+HE
+#PISO 2
+SE
+#CONDICIONES
+1:0:0 DANADO
+2:0:1 PELIGROSO
+#CONEXIONES
+1:0:1 2:0:1 2.5 3 PELIGROSO ABIERTA
+```
+
+Cada posición usa `piso:fila:columna`. El piso empieza en 1 y la fila y la columna empiezan en 0 dentro de cada piso. La última línea conecta las dos escaleras con tiempo 2.5 y capacidad 3. Las condiciones admitidas son `NORMAL`, `DANADO` y `PELIGROSO`. El último campo de una conexión, `ABIERTA` o `BLOQUEADA`, conserva el bloqueo independientemente de su condición. Para los nodos, la minúscula de la cuadrícula sigue indicando bloqueo.
+
+Por defecto se conservan los vecinos de la cuadrícula y se aplican las conexiones personalizadas. La línea opcional `#GRAFO_EXPLICITO` indica que únicamente se deben usar los enlaces enumerados, incluso si la lista está vacía. Tanto «Guardar escenario» como el guardado en la base de datos usan este formato.
 
 Tipos de nodo: `HABITACION`, `PASILLO`, `ESCALERA`, `SALIDA`. Tipos de persona: `ADULTO`, `NINO`, `MOVILIDAD`, `RESCATE`. Salud: `SANO`, `HERIDO`, `ENFERMO`, `INCAPACITADO`. Un plano `.txt` inválido se rechaza con un mensaje y el edificio actual no cambia.
 

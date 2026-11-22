@@ -36,8 +36,45 @@ public class PruebasPersistencia {
         return e;
     }
 
+    static void probarFormatoAmpliado(Path tmp) throws Exception {
+        Edificio original = GestorEscenarios.deTexto("#PISO 1\nHP\n#PISO 2\nES\n#PERSONAS\n1 0 0 ADULTO SANO");
+        original.n[0][0].condicion = Condicion.DANADO;
+        original.n[1][0].condicion = Condicion.PELIGROSO;
+        original.n[1][0].bloqueado = true;
+        Conexion enlace = original.conectar(0, 1, 1, 1, 2.75, 4);
+        enlace.condicion = Condicion.PELIGROSO;
+        enlace.bloqueada = true;
+        File archivo = tmp.resolve("dos-pisos.txt").toFile();
+        for (boolean explicito : new boolean[]{false, true}) {
+            original.conexionesExplicitas = explicito;
+            GestorEscenarios.guardar(archivo, original);
+            Edificio copia = GestorEscenarios.leer(archivo);
+            chk(copia.n[0][0].condicion == Condicion.DANADO && copia.personas.size() == 1
+                    && copia.n[1][0].condicion == Condicion.PELIGROSO && copia.n[1][0].bloqueado,
+                    "Condiciones y bloqueo de nodos entre pisos");
+            Conexion k = copia.conexiones.get(0);
+            chk(k.origen == enlace.origen && k.destino == enlace.destino && k.tiempo == 2.75
+                    && k.capacidad == 4 && k.bloqueada && k.condicion == Condicion.PELIGROSO,
+                    "Extremos y atributos del enlace");
+            chk((Grafo.desde(copia).arista(0, 1) == null) == explicito, "Adyacencia según el modo guardado");
+        }
+        String prefijo = "HS.\n#CONEXIONES\n";
+        for (String datos : new String[]{"1:0:0 1:0:2 1 1 NORMAL ABIERTA",
+                "1:0:0 2:0:1 1 1 NORMAL ABIERTA", "1:0:0 1:0:1 NaN 2 NORMAL ABIERTA",
+                "1:0:0 1:0:1 1 0 NORMAL ABIERTA", "1:0:0 1:0:1 1 2 NORMAL X",
+                "1:0:0 1:0:1 1 2 NORMAL ABIERTA\n1:0:1 1:0:0 2 3 DANADO BLOQUEADA"}) {
+            try {
+                GestorEscenarios.deTexto(prefijo + datos);
+                chk(false, "Se aceptó una conexión inválida: " + datos);
+            } catch (IllegalArgumentException ex) {
+                chk(ex.getMessage().contains("#CONEXIONES"), "Mensaje de conexión inválida");
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         Path tmp = Files.createTempDirectory("evacua_bd");
+        probarFormatoAmpliado(tmp);
         BaseDatos bd = new BaseDatos(tmp.toString());
         Edificio grid = leer("edificio.txt"), grafo = chico();
         grid.n[5][5].bloqueado = true;
