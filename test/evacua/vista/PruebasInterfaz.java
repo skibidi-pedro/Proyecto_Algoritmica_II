@@ -37,9 +37,21 @@ public class PruebasInterfaz {
             try {
                 Map<String, AbstractButton> botones = new HashMap<>();
                 botones(v, botones);
-                for (String etiqueta : new String[]{"Habitacion", "Pasillo", "Escalera", "Salida", "Borrar nodo", "Editar conexión"})
-                    if (botones.containsKey(etiqueta)) throw new AssertionError(etiqueta);
+                for (String etiqueta : new String[]{"Habitacion", "Pasillo", "Escalera", "Salida", "Borrar nodo", "Puerta", "Mostrar / ocultar departamentos"})
+                    if (!botones.containsKey(etiqueta)) throw new AssertionError(etiqueta);
                 if (!botones.containsKey("Bloquear / desbloquear zonas")) throw new AssertionError("Falta bloqueo");
+                if (botones.containsKey("Editar conexión")) throw new AssertionError("Editor de conexiones visible");
+                v.mapa = evacua.persistencia.GestorEscenarios.deTexto("H.PS");
+                for (String etiqueta : new String[]{"Puerta", "Borrar nodo"}) {
+                    botones.get(etiqueta).doClick();
+                    v.grid.dispatchEvent(new java.awt.event.MouseEvent(v.grid, java.awt.event.MouseEvent.MOUSE_PRESSED,
+                            0, 0, PanelEdificio.CELL + 2, 2, 1, false));
+                    int esperado = etiqueta.equals("Puerta") ? 1 : 0;
+                    if (v.mapa.n[0][0].departamento != esperado) throw new AssertionError(etiqueta);
+                    botones.get("Mostrar / ocultar departamentos").doClick();
+                    if (v.verDepartamentos != (esperado == 1) || v.mapa.n[0][0].departamento != esperado)
+                        throw new AssertionError("Alternar departamentos");
+                }
                 botones.get("Ver mapa de calor").doClick();
                 if (!v.verCalor) throw new AssertionError("Activación del mapa de calor");
             } finally {

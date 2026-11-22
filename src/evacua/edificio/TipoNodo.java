@@ -5,6 +5,7 @@ import java.awt.Color;
 public enum TipoNodo {
     VACIO('.', "Vacio", Color.WHITE),
     HABITACION('H', "Habitacion", new Color(173, 216, 230)),
+    PUERTA('D', "Puerta", new Color(228, 179, 119)),
     PASILLO('P', "Pasillo", new Color(240, 235, 190)),
     ESCALERA('E', "Escalera", new Color(221, 190, 235)),
     SALIDA('S', "Salida", new Color(144, 238, 144));

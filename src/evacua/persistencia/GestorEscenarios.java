@@ -1,5 +1,6 @@
 package evacua.persistencia;
 
+import evacua.importacion.*;
 import evacua.edificio.Condicion;
 import evacua.edificio.Conexion;
 import evacua.edificio.Edificio;
@@ -70,7 +71,11 @@ public class GestorEscenarios {
 
     public static Edificio leer(File f) {
         try {
-            return deTexto(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+            String texto = Files.readString(f.toPath(), StandardCharsets.UTF_8);
+            String nombre = f.getName().toLowerCase(java.util.Locale.ROOT);
+            if (nombre.endsWith(".json")) return ConstructorEdificio.construir(ParserJson.parse(texto));
+            if (nombre.endsWith(".xml")) return ConstructorEdificio.construir(ParserXml.parse(texto));
+            return deTexto(texto);
         } catch (IOException ex) {
             throw new IllegalArgumentException("No se pudo leer el archivo: " + ex.getMessage());
         }
@@ -79,7 +84,10 @@ public class GestorEscenarios {
     public static void guardar(File f, Edificio e) throws IOException {
         List<String> errores = validarParaGuardar(e);
         if (!errores.isEmpty()) throw new IllegalArgumentException(String.join(" ", errores));
-        Files.write(f.toPath(), aTexto(e, true).getBytes(StandardCharsets.UTF_8));
+        String nombre = f.getName().toLowerCase(java.util.Locale.ROOT);
+        boolean xml = nombre.endsWith(".xml");
+        String texto = xml || nombre.endsWith(".json") ? new EscritorPlano(xml).escribir(e) : aTexto(e, true);
+        Files.writeString(f.toPath(), texto, StandardCharsets.UTF_8);
     }
 
     public static java.util.List<String> validarParaGuardar(Edificio e) {
@@ -181,6 +189,7 @@ public class GestorEscenarios {
         }
         // Una zona puede haber sufrido daños después de colocar a sus ocupantes.
         leerCondiciones(m, condiciones);
+        evacua.edificio.Departamentos.detectar(m);
         return m;
     }
 

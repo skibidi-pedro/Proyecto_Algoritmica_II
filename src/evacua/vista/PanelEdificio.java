@@ -88,8 +88,10 @@ public class PanelEdificio extends JPanel {
         } else if (v.motor != null) {
             if (click) v.log("Para editar el edificio vuelva a edicion (boton 'Volver a edicion').");
         } else {
+            TipoNodo anterior = nd.tipo;
             switch (v.herramienta) {
                 case HABITACION: nd.tipo = TipoNodo.HABITACION; break;
+                case PUERTA: nd.tipo = TipoNodo.PUERTA; break;
                 case PASILLO: nd.tipo = TipoNodo.PASILLO; break;
                 case ESCALERA: nd.tipo = TipoNodo.ESCALERA; break;
                 case SALIDA: nd.tipo = TipoNodo.SALIDA; break;
@@ -111,6 +113,7 @@ public class PanelEdificio extends JPanel {
                 default:
                     break;
             }
+            if (anterior != nd.tipo) evacua.edificio.Departamentos.detectar(m);
         }
         repaint();
         v.actualizarEstado();
@@ -162,6 +165,21 @@ public class PanelEdificio extends JPanel {
                     g.drawLine(x + 8, y + 8, x + CELL - 8, y + CELL - 8);
                     g.drawLine(x + CELL - 8, y + 8, x + 8, y + CELL - 8);
                     g.setStroke(new BasicStroke(1));
+                }
+                if (v.verDepartamentos && nd.departamento > 0) {
+                    g.setColor(Color.getHSBColor((nd.departamento * 0.618034f) % 1, 0.85f, 0.7f));
+                    g.setStroke(new BasicStroke(nd.tipo == TipoNodo.PUERTA ? 4 : 2));
+                    g.drawRect(x + 3, y + 3, CELL - 6, CELL - 6);
+                    g.setStroke(new BasicStroke(1));
+                    if (nd.tipo == TipoNodo.PUERTA) {
+                        Font anterior = g.getFont();
+                        g.setFont(anterior.deriveFont(8f));
+                        g.setColor(Color.WHITE);
+                        g.fillRect(x + 2, y + CELL - 12, CELL - 4, 10);
+                        g.setColor(Color.BLACK);
+                        g.drawString(evacua.edificio.Departamentos.identificador(nd.departamento), x + 2, y + CELL - 4);
+                        g.setFont(anterior);
+                    }
                 }
             }
         }

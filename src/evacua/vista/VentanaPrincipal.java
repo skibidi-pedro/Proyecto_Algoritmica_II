@@ -33,7 +33,7 @@ public class VentanaPrincipal extends JFrame {
     MotorSimulacion motor;
     ParametrosSimulacion params = new ParametrosSimulacion();
     Herramienta herramienta = Herramienta.NINGUNA;
-    boolean verCalor;
+    boolean verCalor, verDepartamentos;
     PanelEdificio grid;
     JTextArea logArea;
     JLabel estado;
@@ -141,6 +141,7 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.SANO, 12 + 2, 3);
         m.agregar(TipoPersona.NINO, EstadoSalud.SANO, 12 + 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 24 + 2, 9);
+        evacua.edificio.Departamentos.detectar(m);
         return m;
     }
 
@@ -151,8 +152,8 @@ public class VentanaPrincipal extends JFrame {
         ButtonGroup herramientas = new ButtonGroup();
 
         p.add(grupo("Escenarios y persistencia",
-                boton("Cargar escenario", "Lee un escenario .txt (plano + personas)", e -> cargarEscenario()),
-                boton("Guardar escenario", "Guarda plano, bloqueos y personas en un .txt", e -> guardarEscenario()),
+                boton("Cargar escenario", "Lee un escenario TXT, JSON o XML", e -> cargarEscenario()),
+                boton("Guardar escenario", "Guarda el escenario según la extensión TXT, JSON o XML", e -> guardarEscenario()),
                 boton("Guardar en base de datos", "Guarda el escenario (RN-10) en la base de datos embebida", e -> guardarEnBD()),
                 boton("Cargar de base de datos", "Carga un escenario guardado", e -> cargarDeBD()),
                 boton("Comparar escenarios guardados", "Simula escenarios de la base de datos y compara resultados", e -> compararGuardados()),
@@ -161,7 +162,13 @@ public class VentanaPrincipal extends JFrame {
         btnDeshacer = boton("Deshacer (Ctrl+Z)", "Deshace el ultimo cambio al edificio (solo en modo edicion)", e -> deshacer());
         p.add(grupo("Gestionar edificio",
                 btnDeshacer,
-                tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar")));
+                tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar"),
+                tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Habitacion"),
+                tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pasillo"),
+                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Escalera"),
+                tool("Salida", Herramienta.SALIDA, herramientas, false, "Salida"),
+                tool("Puerta", Herramienta.PUERTA, herramientas, false, "Puerta"),
+                tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Borrar nodo")));
 
         cmbTipo = new JComboBox<>(TipoPersona.values());
         cmbSalud = new JComboBox<>(EstadoSalud.values());
@@ -195,7 +202,12 @@ public class VentanaPrincipal extends JFrame {
             verCalor = calor.isSelected();
             grid.repaint();
         });
-        p.add(grupo("Analisis",
+        JToggleButton departamentos = new JToggleButton("Mostrar / ocultar departamentos");
+        departamentos.addActionListener(e -> {
+            verDepartamentos = departamentos.isSelected();
+            grid.repaint();
+        });
+        p.add(grupo("Analisis", departamentos,
                 calor,
                 boton("Generar reporte de simulacion", "Estadisticas, tiempos y cuellos de botella", e -> reporte()),
                 boton("Exportar reporte individual por persona", "Linea de tiempo de una persona a .txt", e -> exportarIndividual()),

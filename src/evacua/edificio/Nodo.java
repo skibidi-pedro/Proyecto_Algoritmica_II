@@ -2,6 +2,7 @@ package evacua.edificio;
 
 public class Nodo {
     public TipoNodo tipo = TipoNodo.VACIO;
+    public int departamento;
     public boolean danado;
     public boolean peligroso;
     public boolean bloqueoReparable;

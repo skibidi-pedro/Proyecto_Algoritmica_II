@@ -48,7 +48,7 @@ Integrantes:
 7. **Reportes y estadísticas.** Por simulación: tiempo total, tiempo promedio, evacuados/no evacuados, nodos más congestionados. Comparación entre escenarios del mismo edificio. Exportación de un reporte individual por persona con su línea de tiempo.
 8. **Visualización (Swing).** Edificio, personas y rutas en tiempo real; mapa de calor al terminar.
 9. **Trazabilidad y comportamiento de `Persona`.** Bitácora, estrés dinámico (0–100), historial de eventos (bloqueos sufridos, recálculos, tiempo de espera en cuellos de botella) y archivo individual con la línea de tiempo.
-10. **Importación de planos (eliminada).** Se descartó leer planos en `.json` y `.xml`: era demasiado complejo para el alcance. Los edificios se guardan y se cargan solo como `.txt` (cuadrícula con pisos y personas), y esa lectura valida el formato y rechaza el archivo sin cambiar el edificio actual si hay errores.
+10. **Importación y exportación.** El selector de archivos admite escenarios TXT, JSON y XML.
 11. **Optimización y simulación estocástica.** Rescate prioriza niños y personas con movilidad reducida antes de evacuar; eventos aleatorios (colapso de pasillos) que fuerzan recálculo; acumulación de ocupación para el mapa de calor.
 12. **Tipos de desastre.** Al iniciar la emergencia se elige el tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo tiene su propia dinámica: qué zonas bloquea, cómo se propaga o evoluciona en el tiempo, cuánto estrés genera y si afecta la velocidad. Los eventos aleatorios del módulo 11 pasan a depender del desastre elegido.
 
@@ -72,7 +72,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-12 | Estrés | Valor 0–100; sube por congestión, recálculos y peligros; al superar un umbral configurable reduce velocidad o altera comportamiento. |
 | RN-13 | Historial de eventos | Contabiliza bloqueos sufridos, recálculos y tiempo total de espera en cuellos de botella. |
 | RN-14 | Exportación individual | Al terminar se genera un archivo por persona con su línea de tiempo, haya evacuado o vencido el tiempo. |
-| RN-15 | Importación de planos (eliminada) | Ya no existe la importación de planos `.json`/`.xml` con nodos y conexiones. La lectura del `.txt` sigue rechazando los archivos inválidos con un mensaje y sin cambiar el edificio actual (ver RN-10 para el guardado). |
+| RN-15 | Importación de planos | Validar TXT, JSON y XML antes de reemplazar el edificio. |
 | RN-16 | Búsqueda con A\* | La heurística se convierte a tiempo de recorrido para **no sobreestimar** el costo real (ruta óptima). Mismas exclusiones que RN-04 y RN-05. |
 | RN-17 | Personal de rescate | Va primero a nodos con niños o movilidad reducida y solo después a una salida, salvo que su ruta se bloquee o se agote el tiempo. |
 | RN-18 | Eventos aleatorios | En cada paso puede ocurrir un evento (p. ej. colapso de pasillo) con probabilidad configurable; el elemento pasa a Bloqueado y se aplica RN-07. Una **semilla configurable** permite repetir la secuencia. |
@@ -177,7 +177,7 @@ Proyecto_Algoritmica_II/
 
 - Estructuras base: listas simple/doble, pila, cola, heap.
 - Clase `Main` y comunicación entre módulos (cargar y guardar escenarios, exportar reportes individuales y salidas, comparar escenarios).
-- Guardar y leer el plano `.txt` (`GestorEscenarios.aTexto` / `deTexto`), rechazando los archivos inválidos con un mensaje y sin cambiar el edificio actual. Esta tarea era del Integrante 2 cuando existía la importación de planos; al eliminarse `.json`/`.xml`, quedó aquí.
+- Guardar y leer el plano `.txt` (`GestorEscenarios.aTexto` / `deTexto`), rechazando los archivos inválidos con un mensaje y sin cambiar el edificio actual.
 - Registro, guardado y carga de escenarios en la base de datos embebida (`.txt`) y tabla de resultados `.csv`.
 - Exportación individual por persona (usa la bitácora e historial del Integrante 3).
 - Comparación de resultados entre escenarios guardados.
@@ -412,10 +412,14 @@ Limitaciones conocidas:
 
 1. **Rutas por piso (2.8).** La cuadrícula dibuja los tramos pendientes de cada persona con el color de su tipo. Al cambiar de piso se muestran los tramos correspondientes.
 2. **Estados y costos (RN-04, RN-05, RN-16).** El costo de entrada es el tiempo original del enlace multiplicado por el peso del destino (libre 1, dañado 2, peligroso 5, ambos 10) y por 2 si el propio enlace es peligroso. Un enlace dañado o bloqueado sigue cerrado. Todos los factores son al menos uno, por lo que la distancia Manhattan escalada por el menor tiempo por unidad de distancia sigue siendo una cota inferior, incluso con atajos entre pisos.
-3. **Edición y rescate.** La interfaz permite cambiar condiciones y bloquear o desbloquear zonas. Los tipos de nodo y las conexiones se editan mediante el modelo o al importar el plano. Un bloqueo colocado con la herramienta manual es reparable. Cada rescatista en condiciones de actuar puede despejar un bloqueo reparable contiguo por tick mediante una conexión abierta. Al liberar el paso se mantienen daño y peligro. Si un paciente ocupa la última plaza, el rescatista puede asistirlo desde un nodo conectado sin sobreocupar la casilla.
+3. **Edición y rescate.** La interfaz permite cambiar condiciones y bloquear o desbloquear zonas. El editor permite dibujar los cinco tipos de nodo y borrar casillas. Las conexiones se editan mediante el modelo o al importar el plano. Un bloqueo colocado con la herramienta manual es reparable. Cada rescatista en condiciones de actuar puede despejar un bloqueo reparable contiguo por tick mediante una conexión abierta. Al liberar el paso se mantienen daño y peligro. Si un paciente ocupa la última plaza, el rescatista puede asistirlo desde un nodo conectado sin sobreocupar la casilla.
 4. **Reportes automáticos (RN-14).** Al terminar desde Swing se crea una carpeta por ejecución en `datos/reportes/`, con un archivo por persona. Incluye a quienes alcanzaron el tiempo límite. La exportación manual sigue disponible.
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
 6. **Desastres existentes (RN-07, RN-18, RN-20).** Queda pendiente ampliar su integración con las condiciones combinables. Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
+
+**Departamentos.** Una puerta (D en TXT, PUERTA en JSON/XML) conecta una habitación y un pasillo por lados de la cuadrícula. Al editar o cargar la estructura, el detector recorre piso, fila y columna. Desde cada puerta válida explora las habitaciones ortogonalmente conectadas en ese piso mediante BFS y la cola propia. La región y su puerta reciben el mismo identificador global (Dep-001, Dep-002…). Los pasillos quedan fuera. Una puerta incompleta se puede seguir editando. Esta versión contempla una puerta por departamento.
+
+«Mostrar / ocultar departamentos» dibuja contornos por departamento y la etiqueta sobre la puerta del piso visible. Se puede combinar con el mapa de calor. El plano de ejemplo está en recursos/planos/departamentos.txt.
 
 Formato `.txt` (cuadrícula, ver `recursos/planos/edificio.txt`):
 ```
@@ -457,6 +461,7 @@ java -cp out evacua.PruebasPersistencia
 java -cp out evacua.PruebasPisos
 java -cp out evacua.PruebasCongestion
 java -cp out evacua.PruebasEmergencia
+java -cp out evacua.PruebasDepartamentos
 java -cp out evacua.PruebasRutasDinamicas
 java -cp out evacua.vista.PruebasInterfaz
 java -cp out evacua.Main
