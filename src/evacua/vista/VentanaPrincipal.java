@@ -665,9 +665,9 @@ public class VentanaPrincipal extends JFrame {
         List<int[]> metas = m.salidas();
         for (Persona p : m.personas) {
             if (p.evacuada) continue;
-            ResultadoRuta d = motor == null ? BuscadorRutas.buscar(m, p.f, p.c, metas, false)
+            ResultadoRuta d = motor == null ? BuscadorRutas.paraPersona(m, p, metas, false, null)
                     : motor.evaluarRuta(p, metas, false);
-            ResultadoRuta a = motor == null ? BuscadorRutas.buscar(m, p.f, p.c, metas, true)
+            ResultadoRuta a = motor == null ? BuscadorRutas.paraPersona(m, p, metas, true, null)
                     : motor.evaluarRuta(p, metas, true);
             sb.append(String.format("%-34s %-22s %-22s%n", p.etiqueta(),
                     d.explorados + " / " + (d.ruta == null ? "sin ruta" : d.costo),

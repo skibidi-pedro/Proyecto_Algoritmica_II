@@ -7,6 +7,7 @@ import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
+import evacua.personas.PersonalRescate;
 import evacua.personas.Adulto;
 import evacua.personas.TipoPersona;
 import evacua.edificio.Grafo;
@@ -26,6 +27,13 @@ public class MotorSimulacion {
     public final java.util.function.Consumer<String> log;
     public Grafo grafo;
     private Desastre desastre;
+    private final java.util.Map<Persona, EquipoCarga> equipos = new java.util.HashMap<>();
+
+    private double ocupacion(Persona p) {
+        EquipoCarga equipo = equipos.get(p);
+        if (equipo == null) return p.tipo.ocupacion();
+        return equipo.lider() == p ? equipo.ocupacion() : 0;
+    }
     private final java.util.Map<Long, Integer> cruces = new java.util.HashMap<>();
     private final AlgoritmoRuta dijkstra = new Dijkstra(), estrella = new AEstrella();
 
@@ -33,14 +41,16 @@ public class MotorSimulacion {
         return (long) Math.min(a, b) * grafo.total() + Math.max(a, b);
     }
 
-    private boolean sinCupo(int a, int b) {
+    private boolean sinCupo(Persona p, int a, int b) {
         Integer usados = cruces.get(enlace(a, b));
-        return usados != null && usados >= grafo.arista(a, b).capacidad;
+        EquipoCarga equipo = equipos.get(p);
+        int necesarios = equipo == null ? 1 : equipo.portadores.size();
+        return (usados == null ? 0 : usados) + necesarios > grafo.arista(a, b).capacidad;
     }
 
     private void actualizarOcupacion() {
         for (Nodo[] fila : mapa.n) for (Nodo n : fila) n.ocupacion = 0;
-        for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion += p.tipo.ocupacion();
+        for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion += ocupacion(p);
     }
     public int tick;
     public boolean terminado;
@@ -58,12 +68,17 @@ public class MotorSimulacion {
     }
 
     public void iniciar() {
+        equipos.clear();
         grafo = Grafo.desde(mapa);
         desastre = params.desastre.crear();
         tick = 0;
         terminado = false;
         salidas = new Cola<>();
         for (Persona p : mapa.personas) {
+            if (p instanceof PersonalRescate) {
+                ((PersonalRescate) p).retirado = false;
+                ((PersonalRescate) p).transportando = false;
+            }
             p.evacuada = false;
             p.asistida = false;
             p.ayudaFamiliar = false;
@@ -91,7 +106,8 @@ public class MotorSimulacion {
     }
 
     public void asignarRuta(Persona p) {
-        if (p.evacuada) return;
+        EquipoCarga equipo = equipos.get(p);
+        if (p.evacuada || equipo != null && equipo.lider() != p) return;
         registrarBloqueos(p);
         if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida && !p.ayudaFamiliar) {
             p.objetivo = null;
@@ -125,6 +141,7 @@ public class MotorSimulacion {
         if (r.ruta == null && p.ruta.isEmpty()) return;
         if (r.ruta != null && rutaEquivalente(p, metas, r.costo)) return;
         p.ruta = r.ruta == null ? new ArrayList<>() : new ArrayList<>(r.ruta);
+        if (equipo != null) for (Persona integrante : equipo.integrantes) integrante.ruta = p.ruta;
         if (tick > 0) {
             p.historial.recalculos++;
             p.hist.add("t=" + tick + (p.ruta.isEmpty() ? " espera sin ruta viable" : " cambia de ruta"));
@@ -133,7 +150,7 @@ public class MotorSimulacion {
 
     private boolean sinEspacio(Persona persona, int id) {
         Nodo n = mapa.n[id / mapa.cols][id % mapa.cols];
-        return n.ocupacion + persona.tipo.ocupacion() > n.capacidadEfectiva(params.capacidad);
+        return n.ocupacion + ocupacion(persona) > n.capacidadEfectiva(params.capacidad);
     }
 
     private ResultadoRuta buscar(Persona p, List<int[]> metas) {
@@ -143,7 +160,9 @@ public class MotorSimulacion {
     }
 
     public ResultadoRuta evaluarRuta(Persona p, List<int[]> metas, boolean astar) {
-        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, id -> sinEspacio(p, id), this::sinCupo);
+        EquipoCarga equipo = equipos.get(p);
+        Persona encargado = equipo == null ? p : equipo.lider();
+        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, id -> sinEspacio(encargado, id), (a,b) -> sinCupo(encargado,a,b), encargado.tipo == TipoPersona.RESCATE);
     }
 
     private boolean rutaEquivalente(Persona p, List<int[]> metas, double optimo) {
@@ -153,8 +172,8 @@ public class MotorSimulacion {
             int destino = q[0] * mapa.cols + q[1];
             Grafo.Arista a = grafo.arista(id, destino);
             if (a == null || a.bloqueada() || !mapa.caminable(q[0], q[1]) || sinEspacio(p, destino)
-                    || sinCupo(id, destino)) return false;
-            costo += a.costoEntrada(mapa.n[q[0]][q[1]]);
+                    || sinCupo(p, id, destino)) return false;
+            costo += a.costoEntrada(mapa.n[q[0]][q[1]], p.tipo == TipoPersona.RESCATE);
             id = destino;
         }
         if (costo > optimo + 4 * Math.ulp(optimo)) return false;
@@ -178,7 +197,7 @@ public class MotorSimulacion {
     }
 
     private void repararBloqueo(Persona p) {
-        if (p.tipo != TipoPersona.RESCATE || p.salud == EstadoSalud.INCAPACITADO) return;
+        if (p.tipo != TipoPersona.RESCATE || ((PersonalRescate) p).retirado || equipos.containsKey(p) || p.salud == EstadoSalud.INCAPACITADO) return;
         for (Grafo.Arista a : grafo.ady[p.f * mapa.cols + p.c]) {
             Nodo n = mapa.n[a.destino / mapa.cols][a.destino % mapa.cols];
             if (a.bloqueada() || !n.bloqueado || !n.bloqueoReparable) continue;
@@ -201,7 +220,7 @@ public class MotorSimulacion {
         for (int[] q : p.ruta) {
             if (mapa.n[q[0]][q[1]].bloqueado) {
                 p.historial.bloqueosSufridos++;
-                p.aumentarEstres(NivelEstres.BLOQUEO);
+                estresGrupo(p, NivelEstres.BLOQUEO);
             }
         }
     }
@@ -217,25 +236,85 @@ public class MotorSimulacion {
 
     private void chequearRescate(Persona p) {
         Persona o = p.objetivo;
-        if (o == null || o.evacuada) return;
-        if (p.tipo == TipoPersona.ADULTO) o.ayudaFamiliar = false;
+        if (p.tipo != TipoPersona.ADULTO || o == null || o.evacuada) return;
+        o.ayudaFamiliar = false;
         if (!mapa.caminable(o.f, o.c) || !mapa.caminable(p.f, p.c)) return;
         for (int[] q : metasRescate(p, o)) {
-            if (q[0] != p.f || q[1] != p.c) continue;
-            if (p.tipo == TipoPersona.ADULTO) {
+            if (q[0] == p.f && q[1] == p.c) {
                 o.ayudaFamiliar = !o.asistida;
                 return;
             }
-            if (o.asistida) return;
-            o.ayudaFamiliar = false;
-            o.asistida = true;
-            o.hist.add("t=" + tick + " asistida por P" + p.id);
-            p.hist.add("t=" + tick + " alcanza a P" + o.id + " y lo asiste");
-            log.accept("t=" + tick + " P" + p.id + " (rescate) asiste a P" + o.id + ".");
-            asignarRuta(o);
-            asignarRuta(p);
-            return;
         }
+    }
+
+    private void estresGrupo(Persona p, double incremento) {
+        EquipoCarga equipo = equipos.get(p);
+        if (equipo == null) p.aumentarEstres(incremento);
+        else for (Persona integrante : equipo.integrantes) integrante.aumentarEstres(incremento);
+    }
+
+    private void formarEquipos() {
+        for (Persona r : mapa.personas)
+            if (r instanceof PersonalRescate && !equipos.containsKey(r)) asignarRuta(r);
+        for (Persona paciente : mapa.personas) {
+            if (paciente.evacuada || paciente.asistida || !mapa.caminable(paciente.f, paciente.c)) continue;
+            if (paciente.tipo != TipoPersona.NINO && paciente.tipo != TipoPersona.MOVILIDAD) continue;
+            int necesarios = paciente.tipo == TipoPersona.NINO ? 1 : 2;
+            int destino = paciente.f * mapa.cols + paciente.c;
+            Nodo nodo = mapa.n[paciente.f][paciente.c];
+            double ocupacionFinal = nodo.ocupacion - paciente.tipo.ocupacion();
+            List<PersonalRescate> listos = new ArrayList<>();
+            java.util.Map<Long, Integer> entradas = new java.util.HashMap<>();
+            for (Persona candidato : mapa.personas) {
+                if (!(candidato instanceof PersonalRescate) || candidato.objetivo != paciente
+                        || candidato.evacuada || equipos.containsKey(candidato)) continue;
+                int origen = candidato.f * mapa.cols + candidato.c;
+                if (!mapa.caminable(candidato.f, candidato.c)) continue;
+                if (origen != destino) {
+                    Grafo.Arista arista = grafo.arista(origen, destino);
+                    if (arista == null || arista.bloqueada()) continue;
+                    long clave = enlace(origen, destino);
+                    int usados = entradas.getOrDefault(clave, 0) + cruces.getOrDefault(clave, 0);
+                    if (usados >= arista.capacidad) continue;
+                    entradas.merge(clave, 1, Integer::sum);
+                    ocupacionFinal += candidato.tipo.ocupacion();
+                }
+                listos.add((PersonalRescate) candidato);
+                if (listos.size() == necesarios) break;
+            }
+            if (listos.size() != necesarios || ocupacionFinal > nodo.capacidadEfectiva(params.capacidad)) continue;
+            EquipoCarga equipo = new EquipoCarga(paciente, listos);
+            entradas.forEach((clave, cantidad) -> cruces.merge(clave, cantidad, Integer::sum));
+            nodo.ocupacion -= paciente.tipo.ocupacion();
+            for (PersonalRescate r : listos) {
+                if (r.f != paciente.f || r.c != paciente.c) {
+                    mapa.n[r.f][r.c].ocupacion -= r.tipo.ocupacion();
+                    nodo.ocupacion += r.tipo.ocupacion();
+                    registrarMovimiento(r, paciente.f, paciente.c);
+                }
+                r.transportando = true;
+                r.objetivo = null;
+                r.acum = 0;
+            }
+            paciente.asistida = true;
+            paciente.ayudaFamiliar = false;
+            for (Persona integrante : equipo.integrantes) {
+                equipos.put(integrante, equipo);
+                integrante.ruta = equipo.lider().ruta;
+                integrante.hist.add("t=" + tick + " CARGAR P" + paciente.id);
+            }
+            equipo.lider().ruta.clear();
+        }
+    }
+
+    private void registrarMovimiento(Persona p, int f, int c) {
+        p.f = f;
+        p.c = c;
+        p.pasos++;
+        p.esperando = 0;
+        Nodo n = mapa.n[f][c];
+        p.hist.add("t=" + tick + " -> (" + f + "," + c + ") " + n.tipo.nombre);
+        p.bitacora.registrar(tick, f, c, ControlCapacidad.estado(n, params.capacidad));
     }
 
     public boolean paso() {
@@ -244,8 +323,12 @@ public class MotorSimulacion {
         cruces.clear();
         actualizarOcupacion();
         desastre.paso(this);
+        formarEquipos();
+        java.util.Set<Persona> atendidos = new java.util.HashSet<>();
         for (Persona p : mapa.personas) {
-            if (p.evacuada) continue;
+            EquipoCarga equipo = equipos.get(p);
+            if (p.evacuada || atendidos.contains(p) || equipo != null && equipo.lider() != p) continue;
+            if (equipo != null) atendidos.addAll(equipo.integrantes);
             Nodo ocupado = mapa.n[p.f][p.c];
             int ambiental = ocupado.danado ? NivelEstres.DANO : 0;
             if (ocupado.peligroso) ambiental += NivelEstres.PELIGRO;
@@ -259,13 +342,21 @@ public class MotorSimulacion {
                 continue;
             }
             double v = p.tipo.vel * p.salud.vel;
-            if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : (p.ayudaFamiliar ? 0.25 : 0);
+            if (p.salud == EstadoSalud.INCAPACITADO) v = p.ayudaFamiliar ? 0.25 : 0;
             v *= desastre.velocidad(this, p);
             if (ocupado.peligroso) v *= 0.65;
-            if (NivelEstres.supera(NivelEstres.limitar(p.estres + ambiental), params.umbral)) v *= 0.6;
+            double incremento = p.tipo == TipoPersona.RESCATE ? ambiental * PersonalRescate.FACTOR_ESTRES : ambiental;
+            if (NivelEstres.supera(NivelEstres.limitar(p.estres + incremento), params.umbral)) v *= 0.6;
+            if (equipo != null && equipo.portadores.size() == 2) {
+                PersonalRescate segundo = equipo.portadores.get(1);
+                double otra = segundo.tipo.vel * segundo.salud.vel * desastre.velocidad(this, segundo);
+                if (ocupado.peligroso) otra *= 0.65;
+                if (NivelEstres.supera(segundo.estres + incremento, params.umbral)) otra *= 0.6;
+                v = Math.min(v, otra) * 0.5;
+            }
             if (p instanceof Adulto && ((Adulto) p).evacuacionIndividual) asignarRuta(p);
             if (v <= 0) {
-                p.aumentarEstres(ambiental);
+                estresGrupo(p, ambiental);
                 continue;
             }
             p.acum += v;
@@ -303,25 +394,23 @@ public class MotorSimulacion {
                 }
                 long enlace = enlace(origen, destino);
                 int usados = cruces.getOrDefault(enlace, 0);
-                cruces.put(enlace, usados + 1);
-                if (arista.peligrosa()) p.aumentarEstres(params.intensidad);
-                mapa.n[p.f][p.c].ocupacion -= p.tipo.ocupacion();
-                p.f = sig[0];
-                p.c = sig[1];
-                ns.ocupacion += p.tipo.ocupacion();
+                if (sinEspacio(p, destino) || sinCupo(p, origen, destino)) break;
+                cruces.put(enlace, usados + (equipo == null ? 1 : equipo.portadores.size()));
+                if (arista.peligrosa()) estresGrupo(p, params.intensidad);
+                mapa.n[p.f][p.c].ocupacion -= ocupacion(p);
+                ns.ocupacion += ocupacion(p);
                 p.ruta.remove(0);
-                p.pasos++;
-                p.esperando = 0;
-                p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
-                p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
+                if (equipo == null) registrarMovimiento(p, sig[0], sig[1]);
+                else for (Persona integrante : equipo.integrantes) registrarMovimiento(integrante, sig[0], sig[1]);
                 if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null) {
                     evacuar(p, ambiental);
+                    break;
                 } else {
                     chequearRescate(p);
                     if (p.acum >= 1) asignarRuta(p);
                 }
             }
-            if (!p.evacuada) p.aumentarEstres(ambiental);
+            if (!p.evacuada && (equipo == null || equipos.containsKey(p))) estresGrupo(p, ambiental);
         }
         boolean todas = true;
         for (Persona p : mapa.personas) {
@@ -341,13 +430,13 @@ public class MotorSimulacion {
     private boolean registrarEspera(Persona p) {
         // Distingue un cuello de botella temporal de una zona aislada por bloqueos.
         List<int[]> metas = p.objetivo == null ? mapa.salidas() : metasRescate(p, p.objetivo);
-        ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas);
+        ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, null, (a,b) -> false, p.tipo == TipoPersona.RESCATE);
         exploradosTotal += libre.explorados;
         if (libre.ruta == null) return false;
         int origen = p.f * mapa.cols + p.c;
         for (int[] q : libre.ruta) {
             int destino = q[0] * mapa.cols + q[1];
-            if (sinEspacio(p, destino) || sinCupo(origen, destino)) {
+            if (sinEspacio(p, destino) || sinCupo(p, origen, destino)) {
                 mapa.n[q[0]][q[1]].esperas++;
                 p.historial.esperaCuelloBotella++;
                 return origen == p.f * mapa.cols + p.c && sinEspacio(p, destino);
@@ -358,12 +447,36 @@ public class MotorSimulacion {
     }
 
     private void evacuar(Persona p, int ambiental) {
-        p.aumentarEstres(ambiental);
+        estresGrupo(p, ambiental);
+        EquipoCarga equipo = equipos.get(p);
+        if (equipo != null) {
+            for (Persona integrante : equipo.integrantes) {
+                equipos.remove(integrante);
+                integrante.ruta = new ArrayList<>();
+                integrante.hist.add("t=" + tick + " entrega de P" + equipo.paciente.id);
+            }
+            for (PersonalRescate r : equipo.portadores) {
+                r.transportando = false;
+                r.acum = 0;
+            }
+            registrarSalida(equipo.paciente);
+            for (PersonalRescate r : equipo.portadores) {
+                if (r.elegirObjetivo(mapa.personas) == null) {
+                    mapa.n[r.f][r.c].ocupacion -= r.tipo.ocupacion();
+                    registrarSalida(r);
+                }
+            }
+            return;
+        }
+        mapa.n[p.f][p.c].ocupacion -= ocupacion(p);
+        registrarSalida(p);
+    }
+
+    private void registrarSalida(Persona p) {
         if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
         p.objetivo = null;
         p.evacuada = true;
         p.tEvac = tick;
-        mapa.n[p.f][p.c].ocupacion -= p.tipo.ocupacion();
         p.hist.add("t=" + tick + " EVACUADA");
         salidas.encolar(new RegistroSalida(salidas.tamano() + 1, p, tick));
     }

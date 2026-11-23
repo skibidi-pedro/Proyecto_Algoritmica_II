@@ -23,7 +23,12 @@ public class Grafo {
         }
 
         public double costoEntrada(Nodo destino) {
-            return tiempo * destino.pesoEntrada() * (peligrosa() ? 2 : 1);
+            return costoEntrada(destino, false);
+        }
+
+        public double costoEntrada(Nodo destino, boolean rescate) {
+            int peso = rescate ? (destino.danado ? 2 : 1) : destino.pesoEntrada();
+            return tiempo * peso * (peligrosa() ? 2 : 1);
         }
 
         public boolean peligrosa() {

@@ -25,6 +25,12 @@ public abstract class AlgoritmoRuta {
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
                                 java.util.function.IntPredicate evitar,
                                 java.util.function.BiPredicate<Integer, Integer> sinCupo) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo, boolean rescate) {
         long t0 = System.nanoTime();
         if (!e.caminable(sf, sc)) return new ResultadoRuta();
         int C = g.cols, total = g.total();
@@ -58,7 +64,7 @@ public abstract class AlgoritmoRuta {
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
                 if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
-                double nd = dist[id] + a.costoEntrada(e.n[nid / C][nid % C]);
+                double nd = dist[id] + a.costoEntrada(e.n[nid / C][nid % C], rescate);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;
                     prev[nid] = id;

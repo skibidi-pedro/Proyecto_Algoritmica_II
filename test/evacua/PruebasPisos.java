@@ -62,13 +62,13 @@ public class PruebasPisos {
         MotorSimulacion m = new MotorSimulacion(e.copia(), new ParametrosSimulacion(), x -> { });
         m.iniciar();
         while (m.paso()) { }
-        chk(m.evacuadas() == 9, "evacuan las 9 personas de los 3 pisos: " + m.evacuadas());
+        chk(m.evacuadas() == 8 && !m.mapa.personas.get(4).evacuada, "el adulto incapacitado queda sin modalidad de carga: " + m.evacuadas());
 
-        chk(m.salidas.tamano() == 9, "la cola de salidas tiene 9 registros");
+        chk(m.salidas.tamano() == 8, "la cola de salidas tiene 8 registros");
         java.io.File csv = java.io.File.createTempFile("salidas", ".csv");
         int n1 = evacua.reportes.ExportadorSalidas.exportar(m, csv), n2 = evacua.reportes.ExportadorSalidas.exportar(m, csv);
         List<String> lin = Files.readAllLines(csv.toPath());
-        chk(n1 == 9 && n2 == 9 && lin.size() == 10 && lin.get(0).equals(evacua.reportes.ExportadorSalidas.CABECERA), "CSV de salidas: cabecera + 9 filas, exportable dos veces");
+        chk(n1 == 8 && n2 == 8 && lin.size() == 9 && lin.get(0).equals(evacua.reportes.ExportadorSalidas.CABECERA), "CSV de salidas: cabecera + 8 filas, exportable dos veces");
         int previo = -1;
         boolean ordenado = true;
         for (int i = 1; i < lin.size(); i++) {
