@@ -26,15 +26,15 @@ public class Adulto extends Persona {
     @Override
     public Persona elegirObjetivo(List<Persona> personas) {
         revisarEstres();
-        if (evacuacionIndividual || departamentoInicial == 0 || salud == EstadoSalud.INCAPACITADO) return null;
-        if (objetivo != null && !objetivo.evacuada) return objetivo;
+        if (!activa() || evacuacionIndividual || departamentoInicial == 0 || salud == EstadoSalud.INCAPACITADO) return null;
+        if (objetivo != null && objetivo.activa()) return objetivo;
         Persona candidato = null;
         for (Persona q : personas) {
-            if (q.evacuada || q.departamentoInicial != departamentoInicial) continue;
+            if (!q.activa() || q.departamentoInicial != departamentoInicial) continue;
             if (q.tipo != TipoPersona.NINO && (q.tipo != TipoPersona.MOVILIDAD || estres >= 50)) continue;
             boolean reservado = false;
             for (Persona otro : personas)
-                if (otro != this && otro.tipo == TipoPersona.ADULTO && !otro.evacuada && otro.objetivo == q)
+                if (otro != this && otro.tipo == TipoPersona.ADULTO && otro.activa() && otro.objetivo == q)
                     reservado = true;
             if (reservado) continue;
             if (q.tipo == TipoPersona.NINO) return q;

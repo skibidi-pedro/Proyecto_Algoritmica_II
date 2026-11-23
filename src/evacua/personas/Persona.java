@@ -16,6 +16,16 @@ public abstract class Persona {
     public int departamentoInicial;
     public boolean ayudaFamiliar;
 
+    public int tickMuerte = -1, confusion, ticksFuego, ticksGas;
+
+    public boolean activa() { return !evacuada && tickMuerte < 0; }
+
+    public void registrarExposicion(boolean fuego, boolean gas) {
+        if (!activa()) return;
+        ticksFuego = fuego ? ticksFuego + 1 : 0;
+        ticksGas = gas ? ticksGas + 1 : 0;
+    }
+
     public int esperando;
     public final List<String> hist = new ArrayList<>();
     public final Bitacora bitacora = new Bitacora();
@@ -53,7 +63,7 @@ public abstract class Persona {
     }
 
     public void aumentarEstres(double d) {
-        estres = NivelEstres.limitar(estres + d);
+        if (activa()) estres = NivelEstres.limitar(estres + d);
     }
 
     public void reducirEstres(double d) {

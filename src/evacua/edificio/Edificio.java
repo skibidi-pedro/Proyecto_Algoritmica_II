@@ -144,6 +144,8 @@ public class Edificio {
         Edificio e = new Edificio(filasPorPiso, cols, nuevosPisos);
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++) {
+                e.n[i][j].fuegoActivo = n[i][j].fuegoActivo;
+                e.n[i][j].fijarGas(n[i][j].concentracionGas());
                 e.n[i][j].danado = n[i][j].danado;
                 e.n[i][j].peligroso = n[i][j].peligroso;
                 e.n[i][j].bloqueoReparable = n[i][j].bloqueoReparable;

@@ -3,6 +3,14 @@ package evacua.edificio;
 public class Nodo {
     public TipoNodo tipo = TipoNodo.VACIO;
     public int departamento;
+    public boolean fuegoActivo;
+    private double gas;
+    public double concentracionGas() { return gas; }
+    public void fijarGas(double porcentaje) {
+        if (!Double.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100)
+            throw new IllegalArgumentException("El gas debe estar entre 0 y 100 %.");
+        gas = porcentaje;
+    }
     public boolean danado;
     public boolean peligroso;
     public boolean bloqueoReparable;

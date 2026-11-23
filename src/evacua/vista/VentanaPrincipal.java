@@ -356,11 +356,14 @@ public class VentanaPrincipal extends JFrame {
         btnDeshacer.setEnabled(motor == null && historial.puedeDeshacer());
         actualizarSalidas();
         if (m.pisos != pisosMostrados || selectorEnEdicion != (motor == null)) reconstruirSelector();
-        if (motor == null) {
+        if (seleccionandoOrigen) {
+            estado.setText("Seleccione el piso y haga clic en un nodo de origen.");
+        } else if (motor == null) {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
         } else {
             estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
-                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.terminado ? "  |  TERMINADA" : ""));
+                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.emergencia().tickLlegada() >= 0 ? "  |  Refuerzos: t=" + motor.emergencia().tickLlegada() : "")
+                    + (motor.terminado ? "  |  TERMINADA" : ""));
         }
     }
 
@@ -379,14 +382,15 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this, "Registre al menos una persona antes de iniciar.", "Sin personas", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        evacua.simulacion.TipoDesastre elegido = (evacua.simulacion.TipoDesastre) JOptionPane.showInputDialog(
-                this, "Tipo de emergencia", "Iniciar simulación", JOptionPane.QUESTION_MESSAGE, null,
-                evacua.simulacion.TipoDesastre.values(), params.desastre);
-        if (elegido == null) return;
-        params.desastre = elegido;
+        MotorSimulacion siguiente = new MotorSimulacion(mapa.copia(), params.copia(), this::log);
+        try {
+            siguiente.iniciar();
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Configuración incompleta", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         timer.stop();
-        Edificio copia = mapa.copia();
-        motor = new MotorSimulacion(copia, params.copia(), this::log);
+        motor = siguiente;
         motor.alTerminar = () -> {
             guardarSalidasCsv();
             try {
@@ -399,7 +403,6 @@ public class VentanaPrincipal extends JFrame {
                 log("No se pudieron guardar los reportes individuales: " + ex.getMessage());
             }
         };
-        motor.iniciar();
         grid.ajustarTamano();
         if (chkTiempoReal.isSelected()) {
             timer.start();
@@ -478,6 +481,8 @@ public class VentanaPrincipal extends JFrame {
         mostrarTexto("Gestionar familiares", grupos.isEmpty() ? "Sin departamentos detectados." : texto.toString());
     }
 
+    boolean seleccionandoOrigen;
+
     void configurar() {
         JTextField prob = new JTextField(String.valueOf(params.prob));
         JTextField sem = new JTextField(String.valueOf(params.semilla));
@@ -489,11 +494,23 @@ public class VentanaPrincipal extends JFrame {
         JPanel f = new JPanel(new GridLayout(0, 2, 6, 6));
         JComboBox<evacua.simulacion.TipoDesastre> desastre = new JComboBox<>(evacua.simulacion.TipoDesastre.values());
         desastre.setSelectedItem(params.desastre);
-        JSpinner intensidad = new JSpinner(new SpinnerNumberModel(params.intensidad, 1, 10, 1));
+        JComboBox<evacua.simulacion.Intensidad> intensidad = new JComboBox<>(evacua.simulacion.Intensidad.values());
+        intensidad.setSelectedItem(params.nivel);
+        JComboBox<String> origen = new JComboBox<>(new String[]{"Aleatorio", "Seleccionar en el plano"});
+        origen.setSelectedIndex(params.origenManual ? 1 : 0);
+        Runnable habilitar = () -> {
+            evacua.simulacion.TipoDesastre tipo = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            origen.setEnabled(tipo.requiereOrigen());
+            intensidad.setEnabled(tipo != evacua.simulacion.TipoDesastre.NINGUNO);
+        };
+        desastre.addActionListener(e -> habilitar.run());
+        habilitar.run();
         f.add(new JLabel("Desastre"));
         f.add(desastre);
-        f.add(new JLabel("Intensidad (1 a 10)"));
+        f.add(new JLabel("Intensidad"));
         f.add(intensidad);
+        f.add(new JLabel("Origen"));
+        f.add(origen);
         f.add(new JLabel("Probabilidad de evento por tick (0-1)"));
         f.add(prob);
         f.add(new JLabel("Semilla aleatoria"));
@@ -516,7 +533,13 @@ public class VentanaPrincipal extends JFrame {
             int ca = Integer.parseInt(cap.getText().trim());
             if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
             params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
-            params.intensidad = (int) intensidad.getValue();
+            params.nivel = (evacua.simulacion.Intensidad) intensidad.getSelectedItem();
+            params.origenManual = params.desastre.requiereOrigen() && origen.getSelectedIndex() == 1;
+            seleccionandoOrigen = params.origenManual;
+            if (seleccionandoOrigen) {
+                params.pisoOrigen = params.filaOrigen = params.colOrigen = -1;
+                log("Seleccione el piso y haga clic en la casilla de origen.");
+            }
             params.prob = pr;
             params.semilla = se;
             params.limite = li;
@@ -664,7 +687,7 @@ public class VentanaPrincipal extends JFrame {
         sb.append(String.format("%-34s %-22s %-22s%n", "Persona", "Dijkstra (expl./costo)", "A* (expl./costo)"));
         List<int[]> metas = m.salidas();
         for (Persona p : m.personas) {
-            if (p.evacuada) continue;
+            if (!p.activa()) continue;
             ResultadoRuta d = motor == null ? BuscadorRutas.paraPersona(m, p, metas, false, null)
                     : motor.evaluarRuta(p, metas, false);
             ResultadoRuta a = motor == null ? BuscadorRutas.paraPersona(m, p, metas, true, null)

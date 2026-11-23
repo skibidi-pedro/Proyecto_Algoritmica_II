@@ -16,8 +16,9 @@ public class ReporteSimulacion {
             sb.append("REPORTE DE SIMULACION\n=====================\n");
             sb.append("Algoritmo: ").append(m.params.astar ? "A*" : "Dijkstra").append("   Semilla: ").append(m.params.semilla).append('\n');
             sb.append("Ticks simulados: ").append(m.tick).append('\n');
+            long fallecidas = m.mapa.personas.stream().filter(p -> p.tickMuerte >= 0).count();
             sb.append("Personas: ").append(m.mapa.personas.size()).append("   Evacuadas: ").append(m.evacuadas())
-                    .append("   No evacuadas: ").append(m.mapa.personas.size() - m.evacuadas()).append('\n');
+                    .append("   Fallecidas: ").append(fallecidas).append("   Pendientes: ").append(m.mapa.personas.size() - m.evacuadas() - fallecidas).append('\n');
             sb.append(String.format("Tiempo promedio de evacuacion: %.1f ticks%n", m.promedioEvac()));
             sb.append(String.format("Estres promedio final: %.2f%n", m.promedioEstres()));
             sb.append("Nodos explorados por los algoritmos: ").append(m.exploradosTotal).append('\n');
@@ -34,14 +35,14 @@ public class ReporteSimulacion {
             sb.append("\nPor persona:\n");
             for (Persona p : m.mapa.personas)
                 sb.append(String.format("  %-34s %s  pasos=%d  recalculos=%d  estres=%.1f%n", p.etiqueta(),
-                        p.evacuada ? "EVACUADA t=" + p.tEvac : "NO EVACUADA", p.pasos, p.historial.recalculos, p.estres));
+                        p.tickMuerte >= 0 ? "FALLECIDA t=" + p.tickMuerte : p.evacuada ? "EVACUADA t=" + p.tEvac : "NO EVACUADA", p.pasos, p.historial.recalculos, p.estres));
             return sb.toString();
         }
 
         public static String individual(Persona p) {
             StringBuilder sb = new StringBuilder();
             sb.append("REPORTE INDIVIDUAL - ").append(p.etiqueta()).append('\n');
-            sb.append("Estado final: ").append(p.evacuada ? "evacuada en t=" + p.tEvac : "no evacuada").append('\n');
+            sb.append("Estado final: ").append(p.tickMuerte >= 0 ? "fallecida en t=" + p.tickMuerte : p.evacuada ? "evacuada en t=" + p.tEvac : "no evacuada").append('\n');
             sb.append("Pasos: ").append(p.pasos).append("  Recalculos: ").append(p.historial.recalculos)
                     .append("  Bloqueos sufridos: ").append(p.historial.bloqueosSufridos)
                     .append("  Espera en cuellos de botella: ").append(p.historial.esperaCuelloBotella)

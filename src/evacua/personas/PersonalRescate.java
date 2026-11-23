@@ -24,10 +24,10 @@ public class PersonalRescate extends Persona {
     public Persona elegirObjetivo(List<Persona> todas,
                                   java.util.function.BiPredicate<PersonalRescate, Persona> alcanzable) {
         if (estres >= NivelEstres.MAX) retirado = true;
-        if (retirado || transportando || evacuada || salud == EstadoSalud.INCAPACITADO) return null;
+        if (retirado || transportando || !activa() || salud == EstadoSalud.INCAPACITADO) return null;
         java.util.List<Persona> candidatos = new java.util.ArrayList<>();
         for (Persona q : todas) {
-            if (!q.evacuada && !q.asistida && (q.tipo == TipoPersona.NINO || q.tipo == TipoPersona.MOVILIDAD))
+            if (q.activa() && !q.asistida && (q.tipo == TipoPersona.NINO || q.tipo == TipoPersona.MOVILIDAD))
                 candidatos.add(q);
         }
         candidatos.sort(java.util.Comparator.comparing((Persona q) -> q.salud != EstadoSalud.INCAPACITADO)
@@ -39,9 +39,9 @@ public class PersonalRescate extends Persona {
             for (Persona otro : todas) {
                 if (otro == this || !(otro instanceof PersonalRescate)) continue;
                 PersonalRescate r = (PersonalRescate) otro;
-                if (r.evacuada || r.retirado || r.estres >= NivelEstres.MAX || r.transportando
+                if (!r.activa() || r.retirado || r.estres >= NivelEstres.MAX || r.transportando
                         || r.salud == EstadoSalud.INCAPACITADO) continue;
-                if (r.objetivo != q && (necesarios == 1 || r.objetivo != null && !r.objetivo.evacuada)) continue;
+                if (r.objetivo != q && (necesarios == 1 || r.objetivo != null && r.objetivo.activa())) continue;
                 if (!alcanzable.test(r, q)) continue;
                 if (r.objetivo == q) asignados++;
                 disponibles++;

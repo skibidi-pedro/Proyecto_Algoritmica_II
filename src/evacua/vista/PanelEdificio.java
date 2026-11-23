@@ -25,6 +25,7 @@ public class PanelEdificio extends JPanel {
 
     private final VentanaPrincipal v;
     private Boolean valorArrastre;
+    private boolean gestoOrigen;
 
     PanelEdificio(VentanaPrincipal v) {
         this.v = v;
@@ -32,13 +33,14 @@ public class PanelEdificio extends JPanel {
         MouseAdapter ma = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                gestoOrigen = v.seleccionandoOrigen;
                 valorArrastre = null;
                 aplicar(e, true);
             }
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                aplicar(e, false);
+                if (!gestoOrigen) aplicar(e, false);
             }
         };
         addMouseListener(ma);
@@ -59,6 +61,17 @@ public class PanelEdificio extends JPanel {
         int c = e.getX() / CELL, f = piso * m.filasPorPiso + e.getY() / CELL;
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
+        if (v.seleccionandoOrigen) {
+            if (click && nd.tipo != TipoNodo.VACIO) {
+                v.params.pisoOrigen = piso;
+                v.params.filaOrigen = f % m.filasPorPiso;
+                v.params.colOrigen = c;
+                v.seleccionandoOrigen = false;
+                v.log("Origen en piso " + (piso + 1) + ", fila " + v.params.filaOrigen + ", columna " + c);
+                v.actualizarEstado();
+            }
+            return;
+        }
         if (click && v.motor == null && v.herramienta != Herramienta.NINGUNA) v.guardarParaDeshacer();
         if (v.herramienta == Herramienta.ESTADO) {
             if (!click || nd.tipo == TipoNodo.VACIO) return;
@@ -186,7 +199,7 @@ public class PanelEdificio extends JPanel {
 
         if (v.motor != null && !v.motor.terminado) {
             for (Persona p : m.personas) {
-                if (p.evacuada) continue;
+                if (!p.activa()) continue;
                 g.setColor(p.tipo.color.darker());
                 g.setStroke(new BasicStroke(2));
                 int f = p.f, c = p.c;

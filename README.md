@@ -34,7 +34,7 @@ Integrantes:
 | **Estrés** | Valor de 0 a 100 por persona. Se acumula por daño, peligro, proximidad, espera por un nodo lleno y bloqueos que interrumpen la ruta; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
 | **Bitácora** | Registro inmutable por persona: cada nodo visitado + paso de simulación (timestamp) + estado del nodo en ese instante. Lista doble o pila. |
 | **Escenario** | Edificio + personas + bloqueos, guardado en base de datos para repetir o comparar simulaciones. |
-| **Desastre** | Tipo de emergencia que se simula: Terremoto, Incendio, Inundación, Fuga de gas, etc. Cada tipo define cómo se bloquean zonas, cuánto estrés genera y cómo evoluciona (RN-20). |
+| **Desastre** | Configuración de emergencia desde el tick 0, con tipo, intensidad y origen cuando corresponde. |
 | **Mapa de calor** | Ocupación instantánea durante la simulación y visitas acumuladas al terminar. |
 
 ## 3. Funcionalidades (módulos)
@@ -50,7 +50,7 @@ Integrantes:
 9. **Trazabilidad y comportamiento de `Persona`.** Bitácora, estrés dinámico (0–100), historial de eventos (bloqueos sufridos, recálculos, tiempo de espera en cuellos de botella) y archivo individual con la línea de tiempo.
 10. **Importación y exportación.** El selector de archivos admite escenarios TXT, JSON y XML.
 11. **Optimización y simulación estocástica.** Rescate prioriza niños y personas con movilidad reducida antes de evacuar; eventos aleatorios (colapso de pasillos) que fuerzan recálculo; acumulación de ocupación para el mapa de calor.
-12. **Tipos de desastre.** Al iniciar la emergencia se elige el tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo tiene su propia dinámica: qué zonas bloquea, cómo se propaga o evoluciona en el tiempo, cuánto estrés genera y si afecta la velocidad. Los eventos aleatorios del módulo 11 pasan a depender del desastre elegido.
+12. **Tipos de desastre.** En los parámetros se elige NINGUNO, TERREMOTO, INCENDIO o FUGA_DE_GAS. Solo NINGUNO ejecuta los eventos aleatorios genéricos.
 
 ## 4. Reglas del negocio
 
@@ -77,7 +77,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-17 | Personal de rescate | Va primero a nodos con niños o movilidad reducida y solo después a una salida, salvo que su ruta se bloquee o se agote el tiempo. |
 | RN-18 | Eventos aleatorios | En cada paso puede ocurrir un evento (p. ej. colapso de pasillo) con probabilidad configurable; el elemento pasa a Bloqueado y se aplica RN-07. Una **semilla configurable** permite repetir la secuencia. |
 | RN-19 | Mapa de calor | Se acumula ocupación/congestión por nodo; al finalizar, Swing muestra el mapa de calor. |
-| RN-20 | Tipos de desastre | La simulación se inicia con un tipo de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.). Cada tipo define qué nodos o conexiones bloquea, su evolución paso a paso (por ejemplo, el incendio se propaga a nodos vecinos y el terremoto colapsa pasillos y escaleras al azar), el estrés que genera y su probabilidad e intensidad configurables. Con la misma semilla el desastre se repite igual (RN-18). Los bloqueos que provoca activan el recálculo de rutas (RN-07). |
+| RN-20 | Tipos de desastre | La emergencia comienza en el tick 0 y reutiliza la semilla del motor para las decisiones aleatorias. |
 
 ## 5. Estructuras de datos y algoritmos
 
@@ -203,7 +203,7 @@ Proyecto_Algoritmica_II/
 - En `Persona`: bitácora (lista doble o pila), estrés e historial de eventos.
 - Lógica diferenciada del personal de rescate.
 - Eventos aleatorios (colapso de pasillos) con probabilidad y semilla configurables; bloquean el elemento y activan el recálculo del Integrante 2.
-- Tipos de desastre (Terremoto, Incendio, Inundación, Fuga de gas, etc.): clase base `Desastre` en `simulacion/` con una clase derivada por tipo (ver 7.1, último punto).
+- Configuración y actualización por tick de la emergencia en `simulacion/Desastre.java`.
 - Control de capacidad de nodos (capacidad efectiva, desvío o espera).
 - *(Reasignado)* Motor de simulación paso a paso, que integra eventos aleatorios, recálculo de rutas y control de congestión.
 - *(Reasignado)* Cálculo de tiempos de evacuación, cuellos de botella y personas no evacuadas dentro del tiempo límite (RN-09).
@@ -375,7 +375,7 @@ Responsable de **quién** se evacua, **cómo se comporta** y del **bucle de simu
 
 Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, estrés y la cola `salidas`), registra la posición de partida en la bitácora y calcula la primera ruta de cada uno con `asignarRuta`. Después, en cada `paso()`:
 
-1. `tick++`. El desastre seleccionado usa la probabilidad y la semilla del motor. Cuando bloquea una zona, el motor cuenta a las personas afectadas y recalcula las rutas.
+1. `tick++`. El motor actualiza la emergencia. En modo NINGUNO, los bloqueos aleatorios conservan la probabilidad configurada y activan el recálculo de rutas.
 2. Pone `ocupacion = 0` en todos los nodos y la recuenta con las personas que siguen dentro. Esa ocupación es la que lee el mapa de calor en vivo.
 3. En el orden de las personas del plano, el motor evalúa la ruta con el grafo compartido. Descarta nodos llenos y conexiones cuyo cupo ya se consumió. El ocupante puede salir de su propio nodo congestionado. Se conserva el recorrido previo si llega a una meta válida con el mismo costo óptimo.
 4. La velocidad por tipo, salud y estrés se acumula hasta permitir un paso. Cada movimiento actualiza inmediatamente la ocupación y el cupo compartido de la conexión. Si no hay ruta viable, la persona espera y vuelve a evaluar en el siguiente tick. Al evacuar se libera la plaza de la salida y se registra el resultado en la cola.
@@ -415,7 +415,9 @@ Limitaciones conocidas:
 3. **Edición y rescate.** La interfaz permite cambiar condiciones y bloquear o desbloquear zonas. El editor permite dibujar los cinco tipos de nodo y borrar casillas. Las conexiones se editan mediante el modelo o al importar el plano. Un bloqueo colocado con la herramienta manual es reparable. Cada rescatista en condiciones de actuar puede despejar un bloqueo reparable contiguo por tick mediante una conexión abierta. Al liberar el paso se mantienen daño y peligro. La recogida puede reunir a los portadores desde un nodo conectado si hay cupo en el enlace y en el destino para el equipo completo.
 4. **Reportes automáticos (RN-14).** Al terminar desde Swing se crea una carpeta por ejecución en `datos/reportes/`, con un archivo por persona. Incluye a quienes alcanzaron el tiempo límite. La exportación manual sigue disponible.
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
-6. **Desastres existentes (RN-07, RN-18, RN-20).** Queda pendiente ampliar su integración con las condiciones combinables. Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
+6. **Preparación de emergencias (RN-20).** En Configurar parámetros se elige la intensidad BAJA, MEDIA o ALTA. Para incendio y gas, seleccione una casilla del piso en el plano o use un origen aleatorio reproducible. Terremoto inicia el contador de refuerzos en el tick 0 (12/14/15 ticks). Incendio y gas esperan al primer incremento de estrés propio (10/11/12 ticks). Una vez vencido el plazo, el motor admite refuerzos por una salida disponible.
+
+   El motor admite confusión individual de 3 a 5 ticks para civiles, exposición consecutiva a fuego o gas superior al 60 % y registro explícito de fallecidos con tick y causa. La activación de confusión, los daños por terremoto, la propagación, la mortalidad automática y la creación de refuerzos quedan para las siguientes etapas.
 
 **Permanencia del personal de rescate.** Antes de salir y después de cada entrega, el rescatista revisa los objetivos pendientes en orden de prioridad y cercanía. Si un candidato es inaccesible, prueba el siguiente. Para movilidad reducida comprueba que otro portador disponible también pueda llegar y que los enlaces hacia una salida admitan al equipo. El cupo de cruce consumido durante el tick se renueva en el siguiente. Un rescatista que llega a 100 de estrés completa su carga en curso y se retira.
 

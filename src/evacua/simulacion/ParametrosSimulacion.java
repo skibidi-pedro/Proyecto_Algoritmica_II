@@ -1,7 +1,10 @@
 package evacua.simulacion;
 
 public class ParametrosSimulacion {
-    public TipoDesastre desastre = TipoDesastre.CLASICO;
+    public TipoDesastre desastre = TipoDesastre.NINGUNO;
+    public Intensidad nivel = Intensidad.BAJA;
+    public boolean origenManual;
+    public int pisoOrigen = -1, filaOrigen = -1, colOrigen = -1;
     public int intensidad = 1;
     public double prob = 0.03;
     public long semilla = 42;
@@ -13,6 +16,11 @@ public class ParametrosSimulacion {
     public ParametrosSimulacion copia() {
         ParametrosSimulacion p = new ParametrosSimulacion();
         p.desastre = desastre;
+        p.nivel = nivel;
+        p.origenManual = origenManual;
+        p.pisoOrigen = pisoOrigen;
+        p.filaOrigen = filaOrigen;
+        p.colOrigen = colOrigen;
         p.intensidad = intensidad;
         p.prob = prob;
         p.semilla = semilla;
