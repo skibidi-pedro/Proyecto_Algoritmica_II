@@ -31,7 +31,7 @@ Integrantes:
 | **Estado del nodo** | Libre, dañado, peligroso, congestionado o bloqueado. Daño y peligro pueden coexistir. |
 | **Conexión** | Arista del grafo (puerta, pasillo, escalera) con **tiempo de recorrido > 0** y **capacidad máxima**. |
 | **Persona** | Clase base con tipos derivados: Adulto, Niño, Persona con movilidad reducida, Personal de rescate. Cada uno con velocidad y comportamiento propios. |
-| **Estrés** | Valor de 0 a 100 por persona. Sube por congestión, recálculos de ruta y cercanía a peligros; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
+| **Estrés** | Valor de 0 a 100 por persona. Se acumula por daño, peligro, proximidad, espera por un nodo lleno y bloqueos que interrumpen la ruta; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
 | **Bitácora** | Registro inmutable por persona: cada nodo visitado + paso de simulación (timestamp) + estado del nodo en ese instante. Lista doble o pila. |
 | **Escenario** | Edificio + personas + bloqueos, guardado en base de datos para repetir o comparar simulaciones. |
 | **Desastre** | Tipo de emergencia que se simula: Terremoto, Incendio, Inundación, Fuga de gas, etc. Cada tipo define cómo se bloquean zonas, cuánto estrés genera y cómo evoluciona (RN-20). |
@@ -69,7 +69,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-09 | Tiempo límite | Quien no llega a una salida dentro del tiempo límite se registra como **No evacuada**. |
 | RN-10 | Persistencia | Un escenario solo se guarda si hay al menos una salida y todas las personas están en un nodo válido. |
 | RN-11 | Bitácora | Cada nodo visitado se registra con paso de simulación y estado del nodo. Los registros **no se modifican** una vez escritos. |
-| RN-12 | Estrés | Valor 0–100; sube por congestión, recálculos y peligros; al superar un umbral configurable reduce velocidad o altera comportamiento. |
+| RN-12 | Estrés | Valor 0–100; acumula los factores ambientales del nodo y las interrupciones por bloqueo; al superar un umbral configurable reduce velocidad o altera comportamiento. |
 | RN-13 | Historial de eventos | Contabiliza bloqueos sufridos, recálculos y tiempo total de espera en cuellos de botella. |
 | RN-14 | Exportación individual | Al terminar se genera un archivo por persona con su línea de tiempo, haya evacuado o vencido el tiempo. |
 | RN-15 | Importación de planos | Validar TXT, JSON y XML antes de reemplazar el edificio. |
@@ -417,6 +417,8 @@ Limitaciones conocidas:
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
 6. **Desastres existentes (RN-07, RN-18, RN-20).** Queda pendiente ampliar su integración con las condiciones combinables. Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
 
+**Estrés ambiental por tick.** Se evalúa la casilla ocupada al comenzar el turno de la persona. Un nodo libre aporta 0, el daño suma 1 y el peligro suma 4. Si la casilla propia está fuera de peligro, tener uno o más vecinos peligrosos ortogonales en el mismo piso suma 1. Esperar por falta de espacio para entrar en el siguiente nodo añade 2. Un bloqueo que interrumpe la ruta asignada suma 3 una vez por evento. Los recálculos rutinarios aportan 0. Los factores aplicables se suman y el estrés total queda entre 0 y 100, sin recuperación automática.
+
 **Gestionar familiares.** Este botón consulta los ocupantes del departamento de origen, incluso después de que crucen su puerta. TXT, JSON y XML guardan la pertenencia. Los planos antiguos la calculan a partir de la casilla inicial. Los rescatistas quedan fuera de los grupos.
 
 Un adulto acompaña a un integrante de su departamento a la vez, con preferencia por los niños. Cuando lo alcanza, permanece con él o lo sigue hasta la salida. Un incapacitado con ayuda familiar puede avanzar a 0,25 casillas por tick antes de los ajustes por estrés o desastre. Con ayuda profesional avanza a 0,5. El profesional puede asumir la asistencia de cualquier integrante. Si un adulto acompaña a una persona con movilidad reducida y alcanza 50 de estrés, continúa solo el resto de esa evacuación.
@@ -467,6 +469,7 @@ java -cp out evacua.PruebasPersistencia
 java -cp out evacua.PruebasPisos
 java -cp out evacua.PruebasCongestion
 java -cp out evacua.PruebasEmergencia
+java -cp out evacua.PruebasEstres
 java -cp out evacua.PruebasFamiliares
 java -cp out evacua.PruebasDepartamentos
 java -cp out evacua.PruebasRutasDinamicas

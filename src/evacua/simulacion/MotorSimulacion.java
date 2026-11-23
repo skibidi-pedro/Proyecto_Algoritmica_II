@@ -92,6 +92,7 @@ public class MotorSimulacion {
 
     public void asignarRuta(Persona p) {
         if (p.evacuada) return;
+        registrarBloqueos(p);
         if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida && !p.ayudaFamiliar) {
             p.objetivo = null;
             p.ruta.clear();
@@ -192,18 +193,16 @@ public class MotorSimulacion {
     }
 
     public void alBloquear(int f, int c) {
-        contarBloqueo(f, c);
         recalcularTodas();
     }
 
-    private void contarBloqueo(int f, int c) {
-        for (Persona p : mapa.personas) {
-            if (p.evacuada) continue;
-            for (int[] q : p.ruta)
-                if (q[0] == f && q[1] == c) {
-                    p.historial.bloqueosSufridos++;
-                    break;
-                }
+    private void registrarBloqueos(Persona p) {
+        // La ruta aún es la anterior. Al recalcular se descartan los nodos bloqueados.
+        for (int[] q : p.ruta) {
+            if (mapa.n[q[0]][q[1]].bloqueado) {
+                p.historial.bloqueosSufridos++;
+                p.aumentarEstres(NivelEstres.BLOQUEO);
+            }
         }
     }
 
@@ -211,7 +210,7 @@ public class MotorSimulacion {
         int[][] d = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
         for (int[] x : d) {
             int nf = p.f + x[0], nc = p.c + x[1];
-            if (mapa.dentro(nf, nc) && mapa.piso(nf) == mapa.piso(p.f) && mapa.n[nf][nc].tipo != TipoNodo.VACIO && mapa.n[nf][nc].bloqueado) return true;
+            if (mapa.dentro(nf, nc) && mapa.piso(nf) == mapa.piso(p.f) && mapa.n[nf][nc].tipo != TipoNodo.VACIO && mapa.n[nf][nc].peligroso) return true;
         }
         return false;
     }
@@ -247,30 +246,29 @@ public class MotorSimulacion {
         desastre.paso(this);
         for (Persona p : mapa.personas) {
             if (p.evacuada) continue;
+            Nodo ocupado = mapa.n[p.f][p.c];
+            int ambiental = ocupado.danado ? NivelEstres.DANO : 0;
+            if (ocupado.peligroso) ambiental += NivelEstres.PELIGRO;
+            else if (cercaDePeligro(p)) ambiental += NivelEstres.PROXIMIDAD;
             repararBloqueo(p);
             asignarRuta(p);
             chequearRescate(p);
             if (p.objetivo == null && (p.salud != EstadoSalud.INCAPACITADO || p.asistida || p.ayudaFamiliar)
                     && mapa.caminable(p.f, p.c) && mapa.n[p.f][p.c].tipo == TipoNodo.SALIDA) {
-                evacuar(p);
+                evacuar(p, ambiental);
                 continue;
             }
             double v = p.tipo.vel * p.salud.vel;
             if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : (p.ayudaFamiliar ? 0.25 : 0);
             v *= desastre.velocidad(this, p);
-            if (mapa.n[p.f][p.c].peligroso) {
-                p.aumentarEstres(params.intensidad);
-                v *= 0.65;
-            }
-            if (NivelEstres.supera(p.estres, params.umbral)) v *= 0.6;
-            if (cercaDePeligro(p)) p.aumentarEstres(0.1 * params.intensidad);
+            if (ocupado.peligroso) v *= 0.65;
+            if (NivelEstres.supera(NivelEstres.limitar(p.estres + ambiental), params.umbral)) v *= 0.6;
             if (p instanceof Adulto && ((Adulto) p).evacuacionIndividual) asignarRuta(p);
             if (v <= 0) {
-                p.aumentarEstres(0.3);
+                p.aumentarEstres(ambiental);
                 continue;
             }
             p.acum += v;
-            boolean movio = false;
             while (p.acum >= 1 && !p.evacuada) {
                 p.acum -= 1;
                 if (p.ruta.isEmpty() && p.tipo == TipoPersona.ADULTO && p.objetivo != null
@@ -281,7 +279,7 @@ public class MotorSimulacion {
                     int[] siguiente = salida.ruta.get(0);
                     if (siguiente[0] != p.f || siguiente[1] != p.c) break;
                     if (mapa.n[p.f][p.c].tipo == TipoNodo.SALIDA) {
-                        evacuar(p);
+                        evacuar(p, ambiental);
                         break;
                     }
                     ResultadoRuta despejar = buscar(p, mapa.salidas());
@@ -289,9 +287,8 @@ public class MotorSimulacion {
                     p.ruta = new ArrayList<>(despejar.ruta);
                 }
                 if (p.ruta.isEmpty()) {
-                    p.aumentarEstres(0.5);
                     p.esperando++;
-                    registrarEspera(p);
+                    if (registrarEspera(p)) ambiental += NivelEstres.CONGESTION;
                     break;
                 }
                 int[] sig = p.ruta.get(0);
@@ -301,7 +298,6 @@ public class MotorSimulacion {
                 if (!mapa.caminable(sig[0], sig[1]) || arista == null || arista.bloqueada()) {
                     p.hist.add("t=" + tick + " ruta bloqueada en (" + sig[0] + "," + sig[1] + "), recalcula");
                     p.historial.recalculos++;
-                    p.historial.bloqueosSufridos++;
                     asignarRuta(p);
                     break;
                 }
@@ -316,17 +312,16 @@ public class MotorSimulacion {
                 p.ruta.remove(0);
                 p.pasos++;
                 p.esperando = 0;
-                movio = true;
                 p.hist.add("t=" + tick + " -> (" + p.f + "," + p.c + ") " + ns.tipo.nombre);
                 p.bitacora.registrar(tick, p.f, p.c, ControlCapacidad.estado(ns, params.capacidad));
                 if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null) {
-                    evacuar(p);
+                    evacuar(p, ambiental);
                 } else {
                     chequearRescate(p);
                     if (p.acum >= 1) asignarRuta(p);
                 }
             }
-            if (movio) p.reducirEstres(0.2);
+            if (!p.evacuada) p.aumentarEstres(ambiental);
         }
         boolean todas = true;
         for (Persona p : mapa.personas) {
@@ -343,25 +338,27 @@ public class MotorSimulacion {
         return !terminado;
     }
 
-    private void registrarEspera(Persona p) {
+    private boolean registrarEspera(Persona p) {
         // Distingue un cuello de botella temporal de una zona aislada por bloqueos.
         List<int[]> metas = p.objetivo == null ? mapa.salidas() : metasRescate(p, p.objetivo);
         ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas);
         exploradosTotal += libre.explorados;
-        if (libre.ruta == null) return;
+        if (libre.ruta == null) return false;
         int origen = p.f * mapa.cols + p.c;
         for (int[] q : libre.ruta) {
             int destino = q[0] * mapa.cols + q[1];
             if (sinEspacio(p, destino) || sinCupo(origen, destino)) {
                 mapa.n[q[0]][q[1]].esperas++;
                 p.historial.esperaCuelloBotella++;
-                return;
+                return origen == p.f * mapa.cols + p.c && sinEspacio(p, destino);
             }
             origen = destino;
         }
+        return false;
     }
 
-    private void evacuar(Persona p) {
+    private void evacuar(Persona p, int ambiental) {
+        p.aumentarEstres(ambiental);
         if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
         p.objetivo = null;
         p.evacuada = true;
