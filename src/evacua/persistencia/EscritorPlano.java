@@ -47,7 +47,8 @@ final class EscritorPlano {
         for (Conexion k : e.conexiones) conexiones.add(registro("conexion", "origen", e.idDe(k.origen/e.cols,k.origen%e.cols),
                 "destino", e.idDe(k.destino/e.cols,k.destino%e.cols), "tiempo", k.tiempo, "capacidad", k.capacidad,
                 "condicion", k.condicion, "bloqueada", k.bloqueada));
-        for (Persona p : e.personas) personas.add(registro("persona", "nodo", e.idDe(p.f,p.c), "tipo", p.tipo, "salud", p.salud));
+        for (Persona p : e.personas) personas.add(registro("persona", "nodo", e.idDe(p.f,p.c), "tipo", p.tipo, "salud", p.salud, "departamento",
+                p.departamentoInicial > 0 ? Departamentos.identificador(p.departamentoInicial) : "SIN_DEPARTAMENTO"));
         return xml ? "<edificio " + cabecera + ">\n" + nodos + "\n" + conexiones + "\n" + personas + "\n</edificio>"
                 : "{" + cabecera + ",\n" + nodos + ",\n" + conexiones + ",\n" + personas + "}";
     }

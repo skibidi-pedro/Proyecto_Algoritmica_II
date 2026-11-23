@@ -69,6 +69,7 @@ public final class ParserXml {
             p.nodo = attr(e, "nodo");
             if (attr(e, "tipo") != null) p.tipo = attr(e, "tipo");
             if (attr(e, "salud") != null) p.salud = attr(e, "salud");
+            p.departamento = attr(e, "departamento");
             d.personas.add(p);
         }
         return d;

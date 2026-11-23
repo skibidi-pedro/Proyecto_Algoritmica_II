@@ -42,7 +42,10 @@ public class GestorEscenarios {
             for (Persona p : e.personas) {
                 if (e.pisos > 1) sb.append(e.piso(p.f) + 1).append(' ').append(p.f % e.filasPorPiso);
                 else sb.append(p.f);
-                sb.append(' ').append(p.c).append(' ').append(p.tipo.name()).append(' ').append(p.salud.name()).append('\n');
+                sb.append(' ').append(p.c).append(' ').append(p.tipo.name()).append(' ').append(p.salud.name());
+                if (p.departamentoInicial > 0) sb.append(' ').append(evacua.edificio.Departamentos.identificador(p.departamentoInicial));
+                else if (p.tipo != TipoPersona.RESCATE && e.n[p.f][p.c].departamento != 0) sb.append(" SIN_DEPARTAMENTO");
+                sb.append('\n');
             }
         }
         boolean hayCondiciones = false;
@@ -167,8 +170,12 @@ public class GestorEscenarios {
         if (!haySalida) throw new IllegalArgumentException("El plano debe tener al menos una salida (S).");
         m.conexionesExplicitas = explicitas;
         leerConexiones(m, conexiones);
+        evacua.edificio.Departamentos.detectar(m);
         for (String ln : personas) {
             String[] tk = ln.split("\\s+");
+            String dep = tk[tk.length - 1];
+            boolean conDepartamento = dep.startsWith("Dep-") || dep.equals("SIN_DEPARTAMENTO");
+            if (conDepartamento) tk = java.util.Arrays.copyOf(tk, tk.length - 1);
             int f, c;
             TipoPersona tp;
             EstadoSalud es;
@@ -185,11 +192,11 @@ public class GestorEscenarios {
             }
             if (!m.caminable(f, c))
                 throw new IllegalArgumentException("La persona en (" + f + "," + c + ") no esta sobre un nodo libre.");
-            m.agregar(tp, es, f, c);
+            Persona persona = m.agregar(tp, es, f, c);
+            if (conDepartamento) persona.cargarDepartamento(dep);
         }
         // Una zona puede haber sufrido daños después de colocar a sus ocupantes.
         leerCondiciones(m, condiciones);
-        evacua.edificio.Departamentos.detectar(m);
         return m;
     }
 

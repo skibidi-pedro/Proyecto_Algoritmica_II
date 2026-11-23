@@ -18,7 +18,7 @@ public final class RegistroSalida {
         this.salud = p.salud.name();
         this.tiempo = tiempo;
         this.estres = p.estres;
-        this.asistida = p.asistida;
+        this.asistida = p.asistida || p.ayudaFamiliar;
         this.pasos = p.pasos;
         this.recalculos = p.historial.recalculos;
     }

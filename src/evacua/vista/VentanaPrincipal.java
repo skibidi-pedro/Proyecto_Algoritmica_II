@@ -141,7 +141,7 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.SANO, 12 + 2, 3);
         m.agregar(TipoPersona.NINO, EstadoSalud.SANO, 12 + 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 24 + 2, 9);
-        evacua.edificio.Departamentos.detectar(m);
+        m.actualizarDepartamentos();
         return m;
     }
 
@@ -174,6 +174,7 @@ public class VentanaPrincipal extends JFrame {
         cmbSalud = new JComboBox<>(EstadoSalud.values());
         p.add(grupo("Registrar personas",
                 cmbTipo, cmbSalud,
+                boton("Gestionar familiares", "Consultar integrantes por departamento", e -> gestionarFamiliares()),
                 tool("Colocar / quitar persona", Herramienta.PERSONA, herramientas, false,
                         "Clic en un nodo libre para colocar; clic otra vez para quitar")));
 
@@ -458,6 +459,23 @@ public class VentanaPrincipal extends JFrame {
         if (!requiereMotor()) return;
         motor.generarEvento();
         grid.repaint();
+    }
+
+    void gestionarFamiliares() {
+        Edificio edificio = vista();
+        java.util.SortedMap<Integer, StringBuilder> grupos = new java.util.TreeMap<>();
+        for (evacua.edificio.Nodo[] fila : edificio.n) for (evacua.edificio.Nodo n : fila)
+            if (n.departamento > 0) grupos.computeIfAbsent(n.departamento, id -> new StringBuilder());
+        for (Persona p : edificio.personas) {
+            if (p.tipo == TipoPersona.RESCATE || p.departamentoInicial == 0) continue;
+            String tipo = p.tipo == TipoPersona.NINO ? "NIÑO" : p.tipo == TipoPersona.MOVILIDAD ? "MOVILIDAD REDUCIDA" : "ADULTO";
+            grupos.computeIfAbsent(p.departamentoInicial, id -> new StringBuilder())
+                    .append("  P").append(p.id).append(" — ").append(tipo).append("\n");
+        }
+        StringBuilder texto = new StringBuilder();
+        grupos.forEach((id, grupo) -> texto.append(evacua.edificio.Departamentos.identificador(id)).append("\n")
+                .append(grupo.length() == 0 ? "  Sin integrantes\n" : grupo).append("\n"));
+        mostrarTexto("Gestionar familiares", grupos.isEmpty() ? "Sin departamentos detectados." : texto.toString());
     }
 
     void configurar() {

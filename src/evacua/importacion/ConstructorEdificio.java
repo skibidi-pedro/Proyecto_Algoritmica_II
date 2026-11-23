@@ -51,12 +51,12 @@ public final class ConstructorEdificio {
             nk.bloqueada = c.bloqueada;
             e.conexiones.add(nk);
         }
+        evacua.edificio.Departamentos.detectar(e);
         for (PlanoDatos.PersonaDef p : d.personas) {
             int[] a = pos.get(p.nodo);
             if (!e.caminable(a[0], a[1])) throw new IllegalArgumentException("Persona en nodo bloqueado: " + p.nodo);
-            e.agregar(TipoPersona.valueOf(p.tipo), EstadoSalud.valueOf(p.salud), a[0], a[1]);
+            e.agregar(TipoPersona.valueOf(p.tipo), EstadoSalud.valueOf(p.salud), a[0], a[1]).cargarDepartamento(p.departamento);
         }
-        evacua.edificio.Departamentos.detectar(e);
         return e;
     }
 }

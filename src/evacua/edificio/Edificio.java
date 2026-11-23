@@ -50,7 +50,7 @@ public class Edificio {
     public void rect(TipoNodo t, int f0, int c0, int f1, int c1) {
         for (int i = f0; i <= f1; i++)
             for (int j = c0; j <= c1; j++) n[i][j].tipo = t;
-        Departamentos.detectar(this);
+        actualizarDepartamentos();
     }
 
     public List<int[]> salidas() {
@@ -63,8 +63,15 @@ public class Edificio {
 
     public Persona agregar(TipoPersona t, EstadoSalud s, int f, int c) {
         Persona p = Persona.crear(sigId++, t, s, f, c);
+        p.departamentoInicial = t == TipoPersona.RESCATE ? 0 : n[f][c].departamento;
         personas.add(p);
         return p;
+    }
+
+    public void actualizarDepartamentos() {
+        Departamentos.detectar(this);
+        for (Persona p : personas)
+            p.departamentoInicial = p.tipo == TipoPersona.RESCATE ? 0 : n[p.f][p.c].departamento;
     }
 
     public String idDe(int f, int c) {
@@ -82,13 +89,13 @@ public class Edificio {
         idANodo.values().removeIf(v -> v == f * cols + c);
         idANodo.put(nuevo, f * cols + c);
         n[f][c].tipo = tipo;
-        Departamentos.detectar(this);
+        actualizarDepartamentos();
     }
 
     public void modificarNodo(int f, int c, TipoNodo tipo) {
         if (n[f][c].tipo == TipoNodo.VACIO) throw new IllegalArgumentException("No hay nodo en (" + f + "," + c + ")");
         n[f][c].tipo = tipo;
-        Departamentos.detectar(this);
+        actualizarDepartamentos();
     }
 
     public void eliminarNodo(int f, int c) {
@@ -97,7 +104,7 @@ public class Edificio {
         idANodo.values().removeIf(v -> v == id);
         conexiones.removeIf(k -> k.origen == id || k.destino == id);
         personas.removeIf(p -> p.f == f && p.c == c);
-        Departamentos.detectar(this);
+        actualizarDepartamentos();
     }
 
     public void bloquear(int f, int c, boolean valor) {
@@ -151,8 +158,8 @@ public class Edificio {
             nk.bloqueada = k.bloqueada;
             e.conexiones.add(nk);
         }
-        for (Persona p : personas) e.agregar(p.tipo, p.salud, p.f, p.c);
         Departamentos.detectar(e);
+        for (Persona p : personas) e.agregar(p.tipo, p.salud, p.f, p.c).departamentoInicial = p.departamentoInicial;
         return e;
     }
 }

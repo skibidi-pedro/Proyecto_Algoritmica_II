@@ -13,6 +13,8 @@ public abstract class Persona {
     public int tEvac = -1, pasos;
     public List<int[]> ruta = new ArrayList<>();
     public Persona objetivo;
+    public int departamentoInicial;
+    public boolean ayudaFamiliar;
 
     public int esperando;
     public final List<String> hist = new ArrayList<>();
@@ -38,6 +40,16 @@ public abstract class Persona {
 
     public Persona elegirObjetivo(List<Persona> todas) {
         return null;
+    }
+
+    public void cargarDepartamento(String dep) {
+        if (dep == null || dep.isEmpty()) return;
+        if (dep.equals("SIN_DEPARTAMENTO")) {
+            departamentoInicial = 0;
+            return;
+        }
+        if (!dep.matches("Dep-[0-9]{3,}")) throw new IllegalArgumentException("Departamento inválido: " + dep);
+        departamentoInicial = tipo == TipoPersona.RESCATE ? 0 : Integer.parseInt(dep.substring(4));
     }
 
     public void aumentarEstres(double d) {

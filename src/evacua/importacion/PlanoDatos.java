@@ -21,6 +21,7 @@ public class PlanoDatos {
     }
 
     public static class PersonaDef {
+        public String departamento;
         public String nodo, tipo = "ADULTO", salud = "SANO";
     }
 

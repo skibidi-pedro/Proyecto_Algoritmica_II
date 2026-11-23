@@ -113,7 +113,7 @@ public class PanelEdificio extends JPanel {
                 default:
                     break;
             }
-            if (anterior != nd.tipo) evacua.edificio.Departamentos.detectar(m);
+            if (anterior != nd.tipo) m.actualizarDepartamentos();
         }
         repaint();
         v.actualizarEstado();

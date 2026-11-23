@@ -54,6 +54,7 @@ public final class ParserJson {
             pd.nodo = texto(n.get("nodo"));
             if (n.get("tipo") != null) pd.tipo = texto(n.get("tipo"));
             if (n.get("salud") != null) pd.salud = texto(n.get("salud"));
+            pd.departamento = texto(n.get("departamento"));
             d.personas.add(pd);
         }
         return d;

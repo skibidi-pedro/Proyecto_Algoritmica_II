@@ -417,6 +417,12 @@ Limitaciones conocidas:
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
 6. **Desastres existentes (RN-07, RN-18, RN-20).** Queda pendiente ampliar su integración con las condiciones combinables. Al iniciar se elige el tipo. En la configuración se ajustan probabilidad de evento por tick, intensidad (1–10) y semilla. El modo clásico conserva el colapso de un pasillo. El terremoto añade estrés inicial, reduce la velocidad y colapsa pasillos o escaleras con cada réplica. El incendio bloquea un foco y se propaga por conexiones disponibles. La inundación empieza en el piso más bajo disponible y prioriza salidas superiores alcanzables para quienes están en pisos afectados. El gas extiende una zona transitable donde aumenta el estrés y disminuye la velocidad. La intensidad limita los nodos afectados por evento en los cuatro desastres.
 
+**Gestionar familiares.** Este botón consulta los ocupantes del departamento de origen, incluso después de que crucen su puerta. TXT, JSON y XML guardan la pertenencia. Los planos antiguos la calculan a partir de la casilla inicial. Los rescatistas quedan fuera de los grupos.
+
+Un adulto acompaña a un integrante de su departamento a la vez, con preferencia por los niños. Cuando lo alcanza, permanece con él o lo sigue hasta la salida. Un incapacitado con ayuda familiar puede avanzar a 0,25 casillas por tick antes de los ajustes por estrés o desastre. Con ayuda profesional avanza a 0,5. El profesional puede asumir la asistencia de cualquier integrante. Si un adulto acompaña a una persona con movilidad reducida y alcanza 50 de estrés, continúa solo el resto de esa evacuación.
+
+Para entrar en un nodo, un adulto o una persona con movilidad reducida necesita una plaza completa. Un niño o un rescatista necesita media plaza. Los cupos de las conexiones siguen midiendo cruces por tick.
+
 **Departamentos.** Una puerta (D en TXT, PUERTA en JSON/XML) conecta una habitación y un pasillo por lados de la cuadrícula. Al editar o cargar la estructura, el detector recorre piso, fila y columna. Desde cada puerta válida explora las habitaciones ortogonalmente conectadas en ese piso mediante BFS y la cola propia. La región y su puerta reciben el mismo identificador global (Dep-001, Dep-002…). Los pasillos quedan fuera. Una puerta incompleta se puede seguir editando. Esta versión contempla una puerta por departamento.
 
 «Mostrar / ocultar departamentos» dibuja contornos por departamento y la etiqueta sobre la puerta del piso visible. Se puede combinar con el mapa de calor. El plano de ejemplo está en recursos/planos/departamentos.txt.
@@ -461,6 +467,7 @@ java -cp out evacua.PruebasPersistencia
 java -cp out evacua.PruebasPisos
 java -cp out evacua.PruebasCongestion
 java -cp out evacua.PruebasEmergencia
+java -cp out evacua.PruebasFamiliares
 java -cp out evacua.PruebasDepartamentos
 java -cp out evacua.PruebasRutasDinamicas
 java -cp out evacua.vista.PruebasInterfaz

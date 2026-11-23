@@ -15,7 +15,7 @@ public class Nodo {
         return (danado ? 2 : 1) * (peligroso ? 5 : 1);
     }
     public boolean bloqueado;
-    public int ocupacion;
+    public double ocupacion;
     public int visitas;
     public int esperas;
 }

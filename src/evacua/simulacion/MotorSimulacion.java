@@ -7,6 +7,7 @@ import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
+import evacua.personas.Adulto;
 import evacua.personas.TipoPersona;
 import evacua.edificio.Grafo;
 import evacua.rutas.AlgoritmoRuta;
@@ -39,7 +40,7 @@ public class MotorSimulacion {
 
     private void actualizarOcupacion() {
         for (Nodo[] fila : mapa.n) for (Nodo n : fila) n.ocupacion = 0;
-        for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion++;
+        for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion += p.tipo.ocupacion();
     }
     public int tick;
     public boolean terminado;
@@ -65,6 +66,9 @@ public class MotorSimulacion {
         for (Persona p : mapa.personas) {
             p.evacuada = false;
             p.asistida = false;
+            p.ayudaFamiliar = false;
+            p.objetivo = null;
+            if (p instanceof Adulto) ((Adulto) p).evacuacionIndividual = false;
             p.estres = 0;
             p.bitacora.reiniciar();
             p.historial.reiniciar();
@@ -88,7 +92,7 @@ public class MotorSimulacion {
 
     public void asignarRuta(Persona p) {
         if (p.evacuada) return;
-        if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida) {
+        if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida && !p.ayudaFamiliar) {
             p.objetivo = null;
             p.ruta.clear();
             return;
@@ -97,10 +101,14 @@ public class MotorSimulacion {
         List<int[]> metas = mapa.salidas();
         ResultadoRuta r = null;
         if (p.objetivo != null) {
-            List<int[]> rescate = metasRescate(p.objetivo);
+            List<int[]> rescate = metasRescate(p, p.objetivo);
             r = buscar(p, rescate);
             if (r.ruta != null) metas = rescate;
-            else p.objetivo = null;
+            else if (p.tipo == TipoPersona.ADULTO) {
+                p.objetivo.ayudaFamiliar = false;
+                p.ruta.clear();
+                return;
+            } else p.objetivo = null;
         }
         if (p.objetivo == null) {
             if (desastre instanceof Inundacion && ((Inundacion) desastre).pisoAfectado >= mapa.piso(p.f)) {
@@ -122,8 +130,9 @@ public class MotorSimulacion {
         }
     }
 
-    private boolean lleno(int id) {
-        return ControlCapacidad.lleno(mapa.n[id / mapa.cols][id % mapa.cols], params.capacidad);
+    private boolean sinEspacio(Persona persona, int id) {
+        Nodo n = mapa.n[id / mapa.cols][id % mapa.cols];
+        return n.ocupacion + persona.tipo.ocupacion() > n.capacidadEfectiva(params.capacidad);
     }
 
     private ResultadoRuta buscar(Persona p, List<int[]> metas) {
@@ -133,7 +142,7 @@ public class MotorSimulacion {
     }
 
     public ResultadoRuta evaluarRuta(Persona p, List<int[]> metas, boolean astar) {
-        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, this::lleno, this::sinCupo);
+        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, id -> sinEspacio(p, id), this::sinCupo);
     }
 
     private boolean rutaEquivalente(Persona p, List<int[]> metas, double optimo) {
@@ -142,7 +151,7 @@ public class MotorSimulacion {
         for (int[] q : p.ruta) {
             int destino = q[0] * mapa.cols + q[1];
             Grafo.Arista a = grafo.arista(id, destino);
-            if (a == null || a.bloqueada() || !mapa.caminable(q[0], q[1]) || lleno(destino)
+            if (a == null || a.bloqueada() || !mapa.caminable(q[0], q[1]) || sinEspacio(p, destino)
                     || sinCupo(id, destino)) return false;
             costo += a.costoEntrada(mapa.n[q[0]][q[1]]);
             id = destino;
@@ -152,12 +161,12 @@ public class MotorSimulacion {
         return false;
     }
 
-    private List<int[]> metasRescate(Persona objetivo) {
+    private List<int[]> metasRescate(Persona p, Persona objetivo) {
         int destino = objetivo.f * mapa.cols + objetivo.c;
         List<int[]> metas = new ArrayList<>();
         metas.add(new int[]{objetivo.f, objetivo.c});
         // Con un paciente en la última plaza, la asistencia se presta desde el nodo contiguo.
-        if (lleno(destino) && mapa.caminable(objetivo.f, objetivo.c))
+        if (sinEspacio(p, destino) && mapa.caminable(objetivo.f, objetivo.c))
             for (Grafo.Arista a : grafo.ady[destino])
                 if (!a.bloqueada()) metas.add(new int[]{a.destino / mapa.cols, a.destino % mapa.cols});
         return metas;
@@ -209,9 +218,17 @@ public class MotorSimulacion {
 
     private void chequearRescate(Persona p) {
         Persona o = p.objetivo;
-        if (o == null || o.evacuada || !mapa.caminable(o.f, o.c) || !mapa.caminable(p.f, p.c)) return;
-        for (int[] q : metasRescate(o)) {
+        if (o == null || o.evacuada) return;
+        if (p.tipo == TipoPersona.ADULTO) o.ayudaFamiliar = false;
+        if (!mapa.caminable(o.f, o.c) || !mapa.caminable(p.f, p.c)) return;
+        for (int[] q : metasRescate(p, o)) {
             if (q[0] != p.f || q[1] != p.c) continue;
+            if (p.tipo == TipoPersona.ADULTO) {
+                o.ayudaFamiliar = !o.asistida;
+                return;
+            }
+            if (o.asistida) return;
+            o.ayudaFamiliar = false;
             o.asistida = true;
             o.hist.add("t=" + tick + " asistida por P" + p.id);
             p.hist.add("t=" + tick + " alcanza a P" + o.id + " y lo asiste");
@@ -233,13 +250,13 @@ public class MotorSimulacion {
             repararBloqueo(p);
             asignarRuta(p);
             chequearRescate(p);
-            if (p.objetivo == null && (p.salud != EstadoSalud.INCAPACITADO || p.asistida)
+            if (p.objetivo == null && (p.salud != EstadoSalud.INCAPACITADO || p.asistida || p.ayudaFamiliar)
                     && mapa.caminable(p.f, p.c) && mapa.n[p.f][p.c].tipo == TipoNodo.SALIDA) {
                 evacuar(p);
                 continue;
             }
             double v = p.tipo.vel * p.salud.vel;
-            if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : 0;
+            if (p.salud == EstadoSalud.INCAPACITADO) v = p.asistida ? 0.5 : (p.ayudaFamiliar ? 0.25 : 0);
             v *= desastre.velocidad(this, p);
             if (mapa.n[p.f][p.c].peligroso) {
                 p.aumentarEstres(params.intensidad);
@@ -247,6 +264,7 @@ public class MotorSimulacion {
             }
             if (NivelEstres.supera(p.estres, params.umbral)) v *= 0.6;
             if (cercaDePeligro(p)) p.aumentarEstres(0.1 * params.intensidad);
+            if (p instanceof Adulto && ((Adulto) p).evacuacionIndividual) asignarRuta(p);
             if (v <= 0) {
                 p.aumentarEstres(0.3);
                 continue;
@@ -255,6 +273,21 @@ public class MotorSimulacion {
             boolean movio = false;
             while (p.acum >= 1 && !p.evacuada) {
                 p.acum -= 1;
+                if (p.ruta.isEmpty() && p.tipo == TipoPersona.ADULTO && p.objetivo != null
+                        && (p.objetivo.ayudaFamiliar || p.objetivo.asistida)) {
+                    Persona familiar = p.objetivo;
+                    ResultadoRuta salida = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, familiar.f, familiar.c, mapa.salidas());
+                    if (salida.ruta == null || salida.ruta.isEmpty()) break;
+                    int[] siguiente = salida.ruta.get(0);
+                    if (siguiente[0] != p.f || siguiente[1] != p.c) break;
+                    if (mapa.n[p.f][p.c].tipo == TipoNodo.SALIDA) {
+                        evacuar(p);
+                        break;
+                    }
+                    ResultadoRuta despejar = buscar(p, mapa.salidas());
+                    if (despejar.ruta == null || despejar.ruta.isEmpty()) break;
+                    p.ruta = new ArrayList<>(despejar.ruta);
+                }
                 if (p.ruta.isEmpty()) {
                     p.aumentarEstres(0.5);
                     p.esperando++;
@@ -276,10 +309,10 @@ public class MotorSimulacion {
                 int usados = cruces.getOrDefault(enlace, 0);
                 cruces.put(enlace, usados + 1);
                 if (arista.peligrosa()) p.aumentarEstres(params.intensidad);
-                mapa.n[p.f][p.c].ocupacion--;
+                mapa.n[p.f][p.c].ocupacion -= p.tipo.ocupacion();
                 p.f = sig[0];
                 p.c = sig[1];
-                ns.ocupacion++;
+                ns.ocupacion += p.tipo.ocupacion();
                 p.ruta.remove(0);
                 p.pasos++;
                 p.esperando = 0;
@@ -312,14 +345,14 @@ public class MotorSimulacion {
 
     private void registrarEspera(Persona p) {
         // Distingue un cuello de botella temporal de una zona aislada por bloqueos.
-        List<int[]> metas = p.objetivo == null ? mapa.salidas() : metasRescate(p.objetivo);
+        List<int[]> metas = p.objetivo == null ? mapa.salidas() : metasRescate(p, p.objetivo);
         ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas);
         exploradosTotal += libre.explorados;
         if (libre.ruta == null) return;
         int origen = p.f * mapa.cols + p.c;
         for (int[] q : libre.ruta) {
             int destino = q[0] * mapa.cols + q[1];
-            if (lleno(destino) || sinCupo(origen, destino)) {
+            if (sinEspacio(p, destino) || sinCupo(origen, destino)) {
                 mapa.n[q[0]][q[1]].esperas++;
                 p.historial.esperaCuelloBotella++;
                 return;
@@ -329,9 +362,11 @@ public class MotorSimulacion {
     }
 
     private void evacuar(Persona p) {
+        if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
+        p.objetivo = null;
         p.evacuada = true;
         p.tEvac = tick;
-        mapa.n[p.f][p.c].ocupacion--;
+        mapa.n[p.f][p.c].ocupacion -= p.tipo.ocupacion();
         p.hist.add("t=" + tick + " EVACUADA");
         salidas.encolar(new RegistroSalida(salidas.tamano() + 1, p, tick));
     }
