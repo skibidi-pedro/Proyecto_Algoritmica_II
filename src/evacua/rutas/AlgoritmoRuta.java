@@ -31,8 +31,15 @@ public abstract class AlgoritmoRuta {
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
                                 java.util.function.IntPredicate evitar,
                                 java.util.function.BiPredicate<Integer, Integer> sinCupo, boolean rescate) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, rescate, false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo,
+                                boolean rescate, boolean pasoEspecial) {
         long t0 = System.nanoTime();
-        if (!e.caminable(sf, sc)) return new ResultadoRuta();
+        if (!e.caminable(sf, sc, pasoEspecial)) return new ResultadoRuta();
         int C = g.cols, total = g.total();
         double[] dist = new double[total];
         Arrays.fill(dist, Double.MAX_VALUE);
@@ -42,7 +49,7 @@ public abstract class AlgoritmoRuta {
         boolean[] esMeta = new boolean[total];
         List<int[]> validas = new ArrayList<>();
         for (int[] m : metas)
-            if (e.caminable(m[0], m[1])) {
+            if (e.caminable(m[0], m[1], pasoEspecial)) {
                 esMeta[m[0] * C + m[1]] = true;
                 validas.add(m);
             }
@@ -63,7 +70,7 @@ public abstract class AlgoritmoRuta {
             }
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
-                if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C) || (evitar != null && evitar.test(nid))) continue;
+                if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C, pasoEspecial) || (evitar != null && evitar.test(nid))) continue;
                 double nd = dist[id] + a.costoEntrada(e.n[nid / C][nid % C], rescate);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;

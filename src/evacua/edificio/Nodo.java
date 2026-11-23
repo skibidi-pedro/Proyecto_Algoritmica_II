@@ -16,7 +16,15 @@ public class Nodo {
     public boolean bloqueoReparable;
 
     public int capacidadEfectiva(int base) {
-        return bloqueado ? 0 : Math.max(1, base - (danado ? 1 : 0));
+        return capacidadEfectiva(base, false);
+    }
+
+    public boolean accesoRescate() {
+        return tipo == TipoNodo.SALIDA || tipo == TipoNodo.ESCALERA;
+    }
+
+    public int capacidadEfectiva(int base, boolean pasoEspecial) {
+        return bloqueado && !(pasoEspecial && accesoRescate()) ? 0 : Math.max(1, base - (danado ? 1 : 0));
     }
 
     public int pesoEntrada() {

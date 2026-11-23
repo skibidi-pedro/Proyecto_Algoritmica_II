@@ -415,9 +415,17 @@ Limitaciones conocidas:
 3. **Edición y rescate.** La interfaz permite cambiar condiciones y bloquear o desbloquear zonas. El editor permite dibujar los cinco tipos de nodo y borrar casillas. Las conexiones se editan mediante el modelo o al importar el plano. Un bloqueo colocado con la herramienta manual es reparable. Cada rescatista en condiciones de actuar puede despejar un bloqueo reparable contiguo por tick mediante una conexión abierta. Al liberar el paso se mantienen daño y peligro. La recogida puede reunir a los portadores desde un nodo conectado si hay cupo en el enlace y en el destino para el equipo completo.
 4. **Reportes automáticos (RN-14).** Al terminar desde Swing se crea una carpeta por ejecución en `datos/reportes/`, con un archivo por persona. Incluye a quienes alcanzaron el tiempo límite. La exportación manual sigue disponible.
 5. **Capacidad compartida (RN-03, RN-08).** Cada conexión admite como máximo su capacidad de cruces por tick, sumando ambos sentidos. Quien encuentra el cupo lleno espera y registra la demora. El tiempo de recorrido sigue siendo el peso usado para elegir la ruta.
-6. **Preparación de emergencias (RN-20).** En Configurar parámetros se elige la intensidad BAJA, MEDIA o ALTA. Para incendio y gas, seleccione una casilla del piso en el plano o use un origen aleatorio reproducible. Terremoto inicia el contador de refuerzos en el tick 0 (12/14/15 ticks). Incendio y gas esperan al primer incremento de estrés propio (10/11/12 ticks). Una vez vencido el plazo, el motor admite refuerzos por una salida disponible.
+6. **Terremoto (RN-20).** Comienza en el tick 0. Cada civil recibe de 1 a 4 ticks completos de confusión, indicados con `?` en el plano. Puede recibir estrés y ser transportado durante ese tiempo. Antes del movimiento de las personas en cada tick activo se sortea un único efecto por casilla transitable, incluidas salidas y escaleras.
 
-   El motor admite confusión individual de 3 a 5 ticks para civiles, exposición consecutiva a fuego o gas superior al 60 % y registro explícito de fallecidos con tick y causa. La activación de confusión, los daños por terremoto, la propagación, la mortalidad automática y la creación de refuerzos quedan para las siguientes etapas.
+   | Intensidad | Ticks activos | Daño / peligro / derrumbe por nodo y tick | Estrés adicional por tick | Llegada de refuerzos |
+   |---|---|---|---|---|
+   | Baja | 1–3 | 4 % / 2 % / 0,5 % | +3 | 2 en el tick 12 |
+   | Media | 1–5 | 8 % / 4 % / 1,5 % | +5 | 4 en el tick 14 |
+   | Alta | 1–7 | 12 % / 7 % / 3 % | +8 | 7 en el tick 15 |
+
+   Los derrumbes provocan la muerte inmediata de todos los ocupantes, incluidos los equipos de carga. Los estados persisten tras el temblor. Si todas las salidas son inaccesibles, los civiles buscan refugio por nivel de riesgo (libre, dañado, peligroso, ambos) y luego por costo de ruta. Los rescatistas y sus equipos pueden cruzar escaleras y salidas bloqueadas con la capacidad correspondiente al daño. Los refuerzos se distribuyen por las salidas y esperan turno si falta espacio.
+
+   Incendio y fuga de gas conservan la selección de origen manual o con semilla, los contadores de exposición y el mecanismo de aviso para refuerzos. Sus efectos específicos siguen pendientes. En modo NINGUNO se mantienen los eventos aleatorios habituales.
 
 **Permanencia del personal de rescate.** Antes de salir y después de cada entrega, el rescatista revisa los objetivos pendientes en orden de prioridad y cercanía. Si un candidato es inaccesible, prueba el siguiente. Para movilidad reducida comprueba que otro portador disponible también pueda llegar y que los enlaces hacia una salida admitan al equipo. El cupo de cruce consumido durante el tick se renueva en el siguiente. Un rescatista que llega a 100 de estrés completa su carga en curso y se retira.
 

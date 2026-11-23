@@ -44,7 +44,12 @@ public class Edificio {
     }
 
     public boolean caminable(int f, int c) {
-        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO && !n[f][c].bloqueado;
+        return caminable(f, c, false);
+    }
+
+    public boolean caminable(int f, int c, boolean pasoEspecial) {
+        return dentro(f, c) && n[f][c].tipo != TipoNodo.VACIO
+                && (!n[f][c].bloqueado || pasoEspecial && n[f][c].accesoRescate());
     }
 
     public void rect(TipoNodo t, int f0, int c0, int f1, int c1) {
@@ -53,11 +58,13 @@ public class Edificio {
         actualizarDepartamentos();
     }
 
-    public List<int[]> salidas() {
+    public List<int[]> salidas() { return salidas(false); }
+
+    public List<int[]> salidas(boolean pasoEspecial) {
         List<int[]> r = new ArrayList<>();
         for (int i = 0; i < filas; i++)
             for (int j = 0; j < cols; j++)
-                if (n[i][j].tipo == TipoNodo.SALIDA && !n[i][j].bloqueado) r.add(new int[]{i, j});
+                if (n[i][j].tipo == TipoNodo.SALIDA && caminable(i, j, pasoEspecial)) r.add(new int[]{i, j});
         return r;
     }
 

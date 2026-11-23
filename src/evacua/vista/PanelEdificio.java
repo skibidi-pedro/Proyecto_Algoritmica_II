@@ -233,6 +233,12 @@ public class PanelEdificio extends JPanel {
             g.setStroke(new BasicStroke(1));
             g.setColor(Color.WHITE);
             g.drawString(String.valueOf(p.tipo.letra), cx - 3, cy + 4);
+            if (p.confundida()) {
+                g.setColor(Color.WHITE);
+                g.fillOval(cx - 12, cy - 13, 9, 10);
+                g.setColor(Color.BLACK);
+                g.drawString("?", cx - 10, cy - 5);
+            }
             if (p.salud != EstadoSalud.SANO) {
                 g.setColor(p.salud == EstadoSalud.INCAPACITADO ? Color.BLACK : new Color(180, 0, 0));
                 g.drawString("+", cx + 5, cy - 4);

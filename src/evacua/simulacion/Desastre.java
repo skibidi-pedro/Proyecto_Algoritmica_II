@@ -12,6 +12,7 @@ public class Desastre {
     private final int origen;
     private int llegada = -1;
     private boolean confusionAsignada;
+    private int pendientes, siguienteAcceso;
 
     Desastre(MotorSimulacion m) {
         ParametrosSimulacion p = m.params;
@@ -33,7 +34,10 @@ public class Desastre {
             if (nodos.isEmpty()) throw new IllegalArgumentException("El plano no tiene un origen válido.");
             origen = nodos.get(m.rnd.nextInt(nodos.size()));
         }
-        if (tipo == TipoDesastre.TERREMOTO) llegada = intensidad.demora(tipo);
+        if (tipo == TipoDesastre.TERREMOTO) {
+            llegada = intensidad.demora(tipo);
+            pendientes = intensidad.refuerzos;
+        }
     }
 
     public int origen() { return origen; }
@@ -51,12 +55,64 @@ public class Desastre {
         if (tipo != TipoDesastre.TERREMOTO || m.tick != 0 || confusionAsignada) return;
         confusionAsignada = true;
         for (Persona p : m.mapa.personas)
-            if (p.activa() && !(p instanceof PersonalRescate)) p.confusion = 3 + m.rnd.nextInt(3);
+            if (p.activa() && !(p instanceof PersonalRescate)) p.confusion = 1 + m.rnd.nextInt(4);
     }
 
     void paso(MotorSimulacion m) {
         if (tipo == TipoDesastre.NINGUNO && m.rnd.nextDouble() < m.params.prob) evento(m);
-        // Los futuros módulos específicos actualizarán el entorno aquí.
+        if (tipo != TipoDesastre.TERREMOTO) return;
+        if (m.tick <= intensidad.duracion) {
+            sacudir(m);
+            if (m.tick == intensidad.duracion) m.log.accept("t=" + m.tick + " finaliza el terremoto.");
+        }
+        if (m.tick >= llegada && pendientes > 0) ingresarRefuerzos(m);
+    }
+
+    public int ticksTemblorRestantes(int tick) {
+        return tipo == TipoDesastre.TERREMOTO ? Math.max(0, intensidad.duracion - tick) : 0;
+    }
+
+    public int refuerzosPendientes() { return pendientes; }
+
+    private void sacudir(MotorSimulacion m) {
+        boolean huboDerrumbe = false;
+        boolean[][] derrumbes = new boolean[m.mapa.filas][m.mapa.cols];
+        for (int f = 0; f < m.mapa.filas; f++) for (int c = 0; c < m.mapa.cols; c++) {
+            Nodo n = m.mapa.n[f][c];
+            if (n.tipo == TipoNodo.VACIO || n.bloqueado) continue;
+            double sorteo = m.rnd.nextDouble() * 100;
+            if (sorteo < intensidad.derrumbe) {
+                m.mapa.bloquear(f, c, true);
+                derrumbes[f][c] = true;
+                huboDerrumbe = true;
+                m.log.accept("t=" + m.tick + " derrumbe en " + m.mapa.idDe(f, c));
+            } else if (sorteo < intensidad.derrumbe + intensidad.dano) n.danado = true;
+            else if (sorteo < intensidad.derrumbe + intensidad.dano + intensidad.peligro) n.peligroso = true;
+        }
+        for (Persona p : m.mapa.personas) {
+            if (!p.activa()) continue;
+            if (derrumbes[p.f][p.c]) m.marcarFallecimiento(p, "derrumbe");
+            else estres(m, p, intensidad.estres);
+        }
+        if (huboDerrumbe) m.actualizarTrasDerrumbe();
+    }
+
+    private void ingresarRefuerzos(MotorSimulacion m) {
+        List<int[]> accesos = m.mapa.salidas(true);
+        int sinPlaza = 0;
+        while (pendientes > 0 && sinPlaza < accesos.size()) {
+            int[] q = accesos.get(siguienteAcceso % accesos.size());
+            siguienteAcceso = (siguienteAcceso + 1) % accesos.size();
+            if (!m.admiteRefuerzo(q[0], q[1])) {
+                sinPlaza++;
+                continue;
+            }
+            PersonalRescate r = m.incorporarRefuerzo(q[0], q[1],
+                    id -> new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]));
+            m.log.accept("t=" + m.tick + " llega refuerzo P" + r.id + " por " + m.mapa.idDe(q[0], q[1]));
+            pendientes--;
+            sinPlaza = 0;
+        }
     }
 
     void evento(MotorSimulacion m) {

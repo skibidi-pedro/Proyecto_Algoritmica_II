@@ -20,6 +20,8 @@ public abstract class Persona {
 
     public boolean activa() { return !evacuada && tickMuerte < 0; }
 
+    public boolean confundida() { return activa() && confusion > 0; }
+
     public void registrarExposicion(boolean fuego, boolean gas) {
         if (!activa()) return;
         ticksFuego = fuego ? ticksFuego + 1 : 0;

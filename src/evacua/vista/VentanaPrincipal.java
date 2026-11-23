@@ -362,7 +362,12 @@ public class VentanaPrincipal extends JFrame {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
         } else {
             estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
-                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.emergencia().tickLlegada() >= 0 ? "  |  Refuerzos: t=" + motor.emergencia().tickLlegada() : "")
+                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.params.desastre == evacua.simulacion.TipoDesastre.TERREMOTO
+                            ? "  |  Terremoto " + motor.params.nivel + (motor.emergencia().ticksTemblorRestantes(motor.tick) > 0
+                                ? " activo: " + motor.emergencia().ticksTemblorRestantes(motor.tick) + " ticks restantes" : " finalizado") : "")
+                    + (motor.emergencia().restantes(motor.tick) > 0 ? "  |  Refuerzos en " + motor.emergencia().restantes(motor.tick) + " ticks" : "")
+                    + (motor.emergencia().restantes(motor.tick) == 0 && motor.emergencia().refuerzosPendientes() > 0
+                            ? "  |  Refuerzos pendientes: " + motor.emergencia().refuerzosPendientes() : "")
                     + (motor.terminado ? "  |  TERMINADA" : ""));
         }
     }
