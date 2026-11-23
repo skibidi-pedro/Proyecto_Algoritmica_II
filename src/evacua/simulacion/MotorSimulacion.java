@@ -114,7 +114,9 @@ public class MotorSimulacion {
             p.ruta.clear();
             return;
         }
-        p.objetivo = p.elegirObjetivo(mapa.personas);
+        p.objetivo = p instanceof PersonalRescate
+                ? ((PersonalRescate) p).elegirObjetivo(mapa.personas, this::rescateAlcanzable)
+                : p.elegirObjetivo(mapa.personas);
         List<int[]> metas = mapa.salidas();
         ResultadoRuta r = null;
         if (p.objetivo != null) {
@@ -125,7 +127,11 @@ public class MotorSimulacion {
                 p.objetivo.ayudaFamiliar = false;
                 p.ruta.clear();
                 return;
-            } else p.objetivo = null;
+            } else {
+                // Un enlace utilizado en este tick vuelve a tener cupo en el siguiente.
+                p.ruta.clear();
+                return;
+            }
         }
         if (p.objetivo == null) {
             if (desastre instanceof Inundacion && ((Inundacion) desastre).pisoAfectado >= mapa.piso(p.f)) {
@@ -179,6 +185,18 @@ public class MotorSimulacion {
         if (costo > optimo + 4 * Math.ulp(optimo)) return false;
         for (int[] q : metas) if (id == q[0] * mapa.cols + q[1]) return true;
         return false;
+    }
+
+    private boolean rescateAlcanzable(PersonalRescate r, Persona paciente) {
+        if (!mapa.caminable(paciente.f, paciente.c)) return false;
+        AlgoritmoRuta algoritmo = params.astar ? estrella : dijkstra;
+        ResultadoRuta ida = algoritmo.buscar(mapa, grafo, r.f, r.c, metasRescate(r, paciente),
+                id -> sinEspacio(r, id), (a,b) -> false, true);
+        if (ida.ruta == null) return false;
+        int portadores = paciente.tipo == TipoPersona.MOVILIDAD ? 2 : 1;
+        // Comprueba que el equipo formado pueda salir por enlaces de capacidad suficiente.
+        return algoritmo.buscar(mapa, grafo, paciente.f, paciente.c, mapa.salidas(), null,
+                (a,b) -> grafo.arista(a,b).capacidad < portadores, true).ruta != null;
     }
 
     private List<int[]> metasRescate(Persona p, Persona objetivo) {
@@ -461,7 +479,8 @@ public class MotorSimulacion {
             }
             registrarSalida(equipo.paciente);
             for (PersonalRescate r : equipo.portadores) {
-                if (r.elegirObjetivo(mapa.personas) == null) {
+                asignarRuta(r);
+                if (r.objetivo == null) {
                     mapa.n[r.f][r.c].ocupacion -= r.tipo.ocupacion();
                     registrarSalida(r);
                 }

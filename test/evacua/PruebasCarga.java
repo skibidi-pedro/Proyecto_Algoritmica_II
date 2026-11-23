@@ -78,11 +78,36 @@ public class PruebasCarga {
         exigir(m.evacuadas() == 2, "Reevalúa al liberar el destino");
     }
 
+    static void permanencia() {
+        for (boolean astar : new boolean[]{true, false}) {
+            MotorSimulacion m = motor("H.SPPPH", "0 2 RESCATE SANO\n0 0 NINO INCAPACITADO\n"
+                    + "0 5 NINO INCAPACITADO\n0 6 NINO INCAPACITADO");
+            m.params.astar = astar;
+            Persona r = m.mapa.personas.get(0), primero = m.mapa.personas.get(2), segundo = m.mapa.personas.get(3);
+            m.paso();
+            exigir(!r.evacuada && r.objetivo == primero, "Sale a buscar al objetivo alcanzable desde la salida");
+            while (!primero.evacuada && m.paso()) {}
+            exigir(primero.evacuada && !r.evacuada && r.objetivo == segundo, "Después de entregar vuelve a buscar");
+            while (m.paso()) {}
+            exigir(segundo.evacuada && r.evacuada && !m.mapa.personas.get(1).asistida
+                    && r.tEvac == segundo.tEvac && r.tEvac < m.params.limite, "Sale al quedar solo el objetivo aislado");
+        }
+        MotorSimulacion m = motor("H.SP.H", "0 2 RESCATE SANO\n0 3 MOVILIDAD INCAPACITADO\n0 5 RESCATE SANO");
+        m.paso();
+        exigir(m.mapa.personas.get(0).evacuada, "Un segundo portador aislado no hace viable el rescate");
+        m = motor("SPPH", RESCATE + "0 2 NINO INCAPACITADO");
+        PersonalRescate retirado = (PersonalRescate) m.mapa.personas.get(0);
+        retirado.aumentarEstres(400);
+        m.paso();
+        exigir(retirado.evacuada && !m.mapa.personas.get(1).asistida, "Con estrés 100 sale aunque haya un objetivo");
+    }
+
     public static void main(String[] args) {
         ninos();
         movilidad();
         estres();
         rutas();
-        System.out.println("CARGAR: cuatro escenarios OK");
+        permanencia();
+        System.out.println("Carga y permanencia: TODAS LAS PRUEBAS OK");
     }
 }
