@@ -33,6 +33,7 @@ public class PruebasEmergencia {
                 exigir(tipo.requiereOrigen() == (origen >= 0), "Origen según tipo");
                 int llegada = tipo == TipoDesastre.TERREMOTO ? new int[]{12,14,15}[nivel.ordinal()] : -1;
                 exigir(m.emergencia().tickLlegada() == llegada, "Activación inicial");
+                if (tipo == TipoDesastre.INCENDIO) continue; // La primera detección se verifica en PruebasIncendio.
                 m.mapa.n[0][0].peligroso = true;
                 m.paso();
                 exigir(m.emergencia().tickLlegada() == llegada, "Estrés ambiental independiente");
@@ -65,7 +66,7 @@ public class PruebasEmergencia {
     }
 
     static void mortalidad() {
-        MotorSimulacion m = iniciar("HPPS\n#PERSONAS\n0 0 NINO INCAPACITADO\n0 2 RESCATE SANO", TipoDesastre.INCENDIO);
+        MotorSimulacion m = iniciar("HPPS\n#PERSONAS\n0 0 NINO INCAPACITADO\n0 2 RESCATE SANO", TipoDesastre.FUGA_DE_GAS);
         Persona p = m.mapa.personas.get(0), r = m.mapa.personas.get(1);
         Nodo n = m.mapa.n[0][0];
         n.peligroso = n.fuegoActivo = true;

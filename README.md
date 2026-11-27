@@ -31,7 +31,7 @@ Integrantes:
 | **Estado del nodo** | Libre, dañado, peligroso, congestionado o bloqueado. Daño y peligro pueden coexistir. |
 | **Conexión** | Arista del grafo (puerta, pasillo, escalera) con **tiempo de recorrido > 0** y **capacidad máxima**. |
 | **Persona** | Clase base con tipos derivados: Adulto, Niño, Persona con movilidad reducida, Personal de rescate. Cada uno con velocidad y comportamiento propios. |
-| **Estrés** | Valor de 0 a 100 por persona. Se acumula por daño, peligro, proximidad, espera por un nodo lleno y bloqueos que interrumpen la ruta; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
+| **Estrés** | Límite habitual de 100 por persona, ampliable hasta 500 para bomberos de reemplazo. Se acumula por daño, peligro, proximidad, espera por un nodo lleno y bloqueos que interrumpen la ruta; al pasar un umbral reduce la velocidad o cambia el comportamiento. |
 | **Bitácora** | Registro inmutable por persona: cada nodo visitado + paso de simulación (timestamp) + estado del nodo en ese instante. Lista doble o pila. |
 | **Escenario** | Edificio + personas + bloqueos, guardado en base de datos para repetir o comparar simulaciones. |
 | **Desastre** | Configuración de emergencia desde el tick 0, con tipo, intensidad y origen cuando corresponde. |
@@ -69,7 +69,7 @@ Los valores numéricos son **configurables**; los de abajo son valores por defec
 | RN-09 | Tiempo límite | Quien no llega a una salida dentro del tiempo límite se registra como **No evacuada**. |
 | RN-10 | Persistencia | Un escenario solo se guarda si hay al menos una salida y todas las personas están en un nodo válido. |
 | RN-11 | Bitácora | Cada nodo visitado se registra con paso de simulación y estado del nodo. Los registros **no se modifican** una vez escritos. |
-| RN-12 | Estrés | Valor 0–100; acumula los factores ambientales del nodo y las interrupciones por bloqueo; al superar un umbral configurable reduce velocidad o altera comportamiento. |
+| RN-12 | Estrés | Rango habitual 0–100, con límite individual para bomberos de reemplazo. Acumula los factores ambientales del nodo y las interrupciones por bloqueo; al superar un umbral configurable reduce velocidad o altera comportamiento. |
 | RN-13 | Historial de eventos | Contabiliza bloqueos sufridos, recálculos y tiempo total de espera en cuellos de botella. |
 | RN-14 | Exportación individual | Al terminar se genera un archivo por persona con su línea de tiempo, haya evacuado o vencido el tiempo. |
 | RN-15 | Importación de planos | Validar TXT, JSON y XML antes de reemplazar el edificio. |
@@ -380,7 +380,7 @@ Antes, `iniciar()` deja a todos en estado inicial (limpia bitácora, historial, 
 3. En el orden de las personas del plano, el motor evalúa la ruta con el grafo compartido. Descarta nodos llenos y conexiones cuyo cupo ya se consumió. El ocupante puede salir de su propio nodo congestionado. Se conserva el recorrido previo si llega a una meta válida con el mismo costo óptimo.
 4. La velocidad por tipo, salud y estrés se acumula hasta permitir un paso. Cada movimiento actualiza inmediatamente la ocupación y el cupo compartido de la conexión. Si no hay ruta viable, la persona espera y vuelve a evaluar en el siguiente tick. Al evacuar se libera la plaza de la salida y se registra el resultado en la cola.
 5. Suma 1 a `visitas` de la casilla de cada persona que sigue dentro (o que acaba de salir). Esa es la ocupación acumulada del mapa de calor final.
-6. Si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv` y los reportes individuales (RN-14).
+6. Fuera del incendio, si todas salieron o `tick >= limite`, marca `terminado`, anota "NO EVACUADA (tiempo limite)" a las que faltan y llama a `alTerminar`, que escribe `datos/salidas.csv` y los reportes individuales (RN-14).
 
 **4. Cómo se conecta con los datos**
 
@@ -425,7 +425,25 @@ Limitaciones conocidas:
 
    Los derrumbes provocan la muerte inmediata de todos los ocupantes, incluidos los equipos de carga. Los estados persisten tras el temblor. Si todas las salidas son inaccesibles, los civiles buscan refugio por nivel de riesgo (libre, dañado, peligroso, ambos) y luego por costo de ruta. Los rescatistas y sus equipos pueden cruzar escaleras y salidas bloqueadas con la capacidad correspondiente al daño. Los refuerzos se distribuyen por las salidas y esperan turno si falta espacio.
 
-   Incendio y fuga de gas conservan la selección de origen manual o con semilla, los contadores de exposición y el mecanismo de aviso para refuerzos. Sus efectos específicos siguen pendientes. En modo NINGUNO se mantienen los eventos aleatorios habituales.
+7. **Incendio.** En Configurar parámetros seleccione INCENDIO, intensidad y origen. El fuego empieza en el tick 0 en una sola casilla combustible. El primer aviso activa a quien detecta fuego propio, fuego contiguo visible o humo superior al 10 %, y a los ocupantes de su departamento inicial. Mire el símbolo de cada persona en el plano (! alertada, · sin aviso, × fallecida, B bombero). Al pasar el puntero por una casilla puede consultar humo, extinción, salud, exposición y estrés.
+
+   | Intensidad | Intento de propagación | Daño propio / puerta expuesta | Refuerzo desde la detección |
+   |---|---|---|---|
+   | Baja | 40 % cada 4 ticks | 8 / 6 ticks | 2 bomberos tras 10 ticks |
+   | Media | 50 % cada 3 ticks | 6 / 6 ticks | 4 bomberos tras 11 ticks |
+   | Alta | 60 % cada 2 ticks | 4 / 4 ticks | 7 bomberos tras 12 ticks |
+
+   **Orden del tick.** Cada foco genera 1–5 puntos de humo. El motor difunde por conexiones y ventila hasta 5 puntos en cada salida abierta. Después actualiza daño y puertas, extingue focos saturados (≥99,5 % con sus vecinos permeables) y sortea una vez cada candidato al fuego. A continuación procesa la detección y los avisos por departamento, el estrés máximo entre las tres exposiciones del incendio y el daño físico sobre la posición previa al movimiento. Luego asigna tareas, forma equipos, actualiza rutas y ejecuta movimiento o extinción. Al final ingresan las unidades con cupo y se comprueba el resultado. Los nuevos bomberos actúan desde el siguiente tick.
+
+   **Personas y brigada.** El primer tick en fuego hiere y el tercero mata. Con humo ≥95 % los umbrales son 8 y 15 ticks consecutivos. Una persona incapacitada conserva esa condición más grave. El humo encarece las rutas y reduce la velocidad por bandas. Un bombero puede ingresar al fuego y es inmune a sus efectos y a los del humo. El paciente mantiene su exposición individual. La brigada atiende por prioridad a víctimas en fuego, víctimas en humo ≥95 %, focos y heridos o incapacitados. Reutiliza CARGAR. Un adulto se transporta con un bombero y movilidad reducida requiere un responsable y un segundo portador. Extinguir ocupa dos ticks de trabajo y protege la casilla hasta el siguiente escenario. La extinción natural permite reincendio. La retirada por estrés solicita un reemplazo tras cuatro ticks con 50 puntos más de resistencia, hasta 500.
+
+   **Implementación.** `Incendio` y `Difusion` recorren la lista de adyacencia de `Grafo`. Un vector por nodo conserva la concentración al iniciar la difusión. Dos pasadas por cada enlace calculan la demanda y luego el flujo efectivo, limitado por el humo del origen y el espacio del destino. Un `BitSet` difiere los encendidos hasta terminar el sorteo. Estas fases cuestan O(V + E) por tick y O(V) de memoria auxiliar. `Difusion` recibe un vector y un predicado de permeabilidad, de modo que una futura fuga de gas podrá reutilizar la transferencia conservativa y definir su propia generación y ventilación. Los enlaces cerrados son barreras. Un nodo bloqueado puede arder y transmitir fuego por enlaces abiertos, pero impide el intercambio de humo.
+
+   `Brigada` usa conjuntos de reservas por turno, una búsqueda con varias metas para escoger el foco de menor costo y las búsquedas existentes de A* o Dijkstra para alcanzar y transportar a cada víctima. Al evaluar candidatos, el costo depende del número de bomberos y víctimas y de las búsquedas de ruta por pareja. `Desastre` conserva la semilla y el contador de refuerzos, y una cola FIFO guarda el tick y la resistencia de cada reemplazo. La alerta departamental usa el identificador existente y requiere dos recorridos de los ocupantes.
+
+   **Resultado.** El incendio detectado termina cuando todos los supervivientes han salido y se apagó el último foco. El humo residual puede permanecer. Un incendio extinguido sin aviso figura como tal. Si el motor identifica una situación sin progreso, lo indica en el reporte y detiene el avance automático. El límite clásico de ticks no declara resuelto un incendio. Las pruebas específicas se ejecutan con `java -cp out evacua.simulacion.PruebasIncendio`.
+
+   FUGA_DE_GAS conserva la preparación de origen y contadores para una etapa posterior. NINGUNO conserva los eventos aleatorios habituales.
 
 **Permanencia del personal de rescate.** Antes de salir y después de cada entrega, el rescatista revisa los objetivos pendientes en orden de prioridad y cercanía. Si un candidato es inaccesible, prueba el siguiente. Para movilidad reducida comprueba que otro portador disponible también pueda llegar y que los enlaces hacia una salida admitan al equipo. El cupo de cruce consumido durante el tick se renueva en el siguiente. Un rescatista que llega a 100 de estrés completa su carga en curso y se retira.
 

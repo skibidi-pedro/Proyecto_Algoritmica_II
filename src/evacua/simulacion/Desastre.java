@@ -4,12 +4,15 @@ import evacua.edificio.*;
 import evacua.personas.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** Estado de una emergencia, desde el tick cero hasta el fin de una ejecución. */
 public class Desastre {
     private final TipoDesastre tipo;
     private final Intensidad intensidad;
     private final int origen;
+    final Incendio incendio;
+    private final java.util.ArrayDeque<int[]> reemplazos = new java.util.ArrayDeque<>();
     private int llegada = -1;
     private boolean confusionAsignada;
     private int pendientes, siguienteAcceso;
@@ -25,19 +28,47 @@ public class Desastre {
                     || p.filaOrigen >= m.mapa.filasPorPiso || p.colOrigen < 0 || p.colOrigen >= m.mapa.cols)
                 throw new IllegalArgumentException("Seleccione un origen válido en el plano.");
             int f = p.pisoOrigen * m.mapa.filasPorPiso + p.filaOrigen;
-            if (m.mapa.n[f][p.colOrigen].tipo == TipoNodo.VACIO) throw new IllegalArgumentException("El origen está vacío.");
+            if (!origenValido(m.mapa.n[f][p.colOrigen])) throw new IllegalArgumentException("El nodo seleccionado no admite este desastre.");
             origen = f * m.mapa.cols + p.colOrigen;
         } else {
             List<Integer> nodos = new ArrayList<>();
             for (int f = 0; f < m.mapa.filas; f++) for (int c = 0; c < m.mapa.cols; c++)
-                if (m.mapa.n[f][c].tipo != TipoNodo.VACIO) nodos.add(f * m.mapa.cols + c);
+                if (origenValido(m.mapa.n[f][c])) nodos.add(f * m.mapa.cols + c);
             if (nodos.isEmpty()) throw new IllegalArgumentException("El plano no tiene un origen válido.");
             origen = nodos.get(m.rnd.nextInt(nodos.size()));
         }
+        incendio = tipo == TipoDesastre.INCENDIO ? new Incendio(m, origen, intensidad) : null;
         if (tipo == TipoDesastre.TERREMOTO) {
             llegada = intensidad.demora(tipo);
             pendientes = intensidad.refuerzos;
         }
+    }
+
+    private boolean origenValido(Nodo n) {
+        return tipo == TipoDesastre.INCENDIO ? n.combustible() : n.tipo != TipoNodo.VACIO;
+    }
+
+    void solicitarBomberos(MotorSimulacion m) {
+        if (llegada >= 0) return;
+        llegada = m.tick + intensidad.demora(tipo);
+        pendientes = intensidad.refuerzos;
+        m.log.accept("t=" + m.tick + " primera detección; bomberos solicitados para t=" + llegada);
+    }
+
+    void reemplazar(Bombero b, int tick) {
+        if (b.retirado) reemplazos.add(new int[]{tick + 4, Math.min(500, (int)b.limiteEstres() + 50)});
+    }
+
+    boolean haySolicitudes() { return pendientes > 0 || !reemplazos.isEmpty(); }
+
+    void despachar(MotorSimulacion m) {
+        boolean tareas = incendio.focos > 0 || m.mapa.personas.stream().anyMatch(p -> p.activa()
+                && !(p instanceof Bombero) && (p.salud == EstadoSalud.HERIDO || p.salud == EstadoSalud.INCAPACITADO
+                || m.mapa.n[p.f][p.c].humo >= 95));
+        if (!tareas) {
+            pendientes = 0;
+            reemplazos.clear();
+        } else if (llegada >= 0 && m.tick >= llegada && haySolicitudes()) ingresarRefuerzos(m);
     }
 
     public int origen() { return origen; }
@@ -48,7 +79,7 @@ public class Desastre {
         if (tipo == TipoDesastre.NINGUNO || !p.activa() || !Double.isFinite(incremento) || incremento <= 0) return;
         double previo = p.estres;
         p.aumentarEstres(incremento);
-        if (tipo.requiereOrigen() && llegada < 0 && p.estres > previo) llegada = m.tick + intensidad.demora(tipo);
+        if (tipo == TipoDesastre.FUGA_DE_GAS && llegada < 0 && p.estres > previo) llegada = m.tick + intensidad.demora(tipo);
     }
 
     void iniciarConfusion(MotorSimulacion m) {
@@ -59,6 +90,11 @@ public class Desastre {
     }
 
     void paso(MotorSimulacion m) {
+        if (incendio != null) {
+            incendio.ambiente();
+            incendio.personas();
+            return;
+        }
         if (tipo == TipoDesastre.NINGUNO && m.rnd.nextDouble() < m.params.prob) evento(m);
         if (tipo != TipoDesastre.TERREMOTO) return;
         if (m.tick <= intensidad.duracion) {
@@ -100,17 +136,18 @@ public class Desastre {
     private void ingresarRefuerzos(MotorSimulacion m) {
         List<int[]> accesos = m.mapa.salidas(true);
         int sinPlaza = 0;
-        while (pendientes > 0 && sinPlaza < accesos.size()) {
+        while ((pendientes > 0 || !reemplazos.isEmpty() && reemplazos.peek()[0] <= m.tick) && sinPlaza < accesos.size()) {
             int[] q = accesos.get(siguienteAcceso % accesos.size());
             siguienteAcceso = (siguienteAcceso + 1) % accesos.size();
             if (!m.admiteRefuerzo(q[0], q[1])) {
                 sinPlaza++;
                 continue;
             }
-            PersonalRescate r = m.incorporarRefuerzo(q[0], q[1],
-                    id -> new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]));
+            int limite = pendientes > 0 ? 100 : reemplazos.remove()[1];
+            PersonalRescate r = m.incorporarRefuerzo(q[0], q[1], id -> incendio == null
+                    ? new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]) : new Bombero(id, q[0], q[1], limite));
             m.log.accept("t=" + m.tick + " llega refuerzo P" + r.id + " por " + m.mapa.idDe(q[0], q[1]));
-            pendientes--;
+            if (pendientes > 0) pendientes--;
             sinPlaza = 0;
         }
     }
@@ -119,5 +156,12 @@ public class Desastre {
         if (tipo != TipoDesastre.NINGUNO) return;
         int[] celda = EventoAleatorio.colapsarPasillo(m.mapa, m.rnd);
         if (celda != null) m.alBloquear(celda[0], celda[1]);
+    }
+
+    static void alertarDepartamentos(List<Persona> personas, Set<Integer> departamentos, int tick) {
+        for (Persona p : personas) if (p.activa() && !p.alertada && departamentos.contains(p.departamentoInicial)) {
+            p.alertada = true;
+            p.hist.add("t=" + tick + " recibe alerta de su departamento");
+        }
     }
 }

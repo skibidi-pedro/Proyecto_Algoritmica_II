@@ -29,6 +29,7 @@ public final class ComparadorEscenarios {
         MotorSimulacion m = new MotorSimulacion(e.copia(), params.copia(), s -> { });
         m.iniciar();
         while (m.paso()) {  }
+        if (!m.terminado) throw new IllegalStateException(nombre + ": " + m.resultadoIncendio);
         Fila f = new Fila();
         f.nombre = nombre;
         f.algoritmo = params.astar ? "A*" : "Dijkstra";

@@ -43,8 +43,25 @@ public class PanelEdificio extends JPanel {
                 if (!gestoOrigen) aplicar(e, false);
             }
         };
+        setToolTipText("");
         addMouseListener(ma);
         addMouseMotionListener(ma);
+    }
+
+    @Override public String getToolTipText(MouseEvent e) {
+        if (v.motor == null || v.motor.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO) return null;
+        Edificio m = v.vista();
+        int f = v.pisoActual * m.filasPorPiso + e.getY() / CELL, c = e.getX() / CELL;
+        if (!m.dentro(f,c)) return null;
+        Nodo n = m.n[f][c];
+        StringBuilder info = new StringBuilder(String.format("<html>%s · Humo %.1f%% · Fuego %s · Extinción %d/2",
+                n.tipo.nombre, n.humo, n.fuegoActivo ? "activo" : "inactivo", n.extincion));
+        for (Persona p : m.personas) if (!p.evacuada && p.f == f && p.c == c) {
+            info.append(String.format("<br>%s · %s · estrés %.1f/%.0f · exposición fuego/humo %d/%d",
+                    p.etiqueta(), p.tickMuerte >= 0 ? "Fallecida" : p.alertada ? "Alertada" : "Sin aviso",
+                    p.estres, p.limiteEstres(), p.ticksFuego, p.ticksHumo));
+        }
+        return info.append("</html>").toString();
     }
 
     void ajustarTamano() {
@@ -62,7 +79,7 @@ public class PanelEdificio extends JPanel {
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
         if (v.seleccionandoOrigen) {
-            if (click && nd.tipo != TipoNodo.VACIO) {
+            if (click && nd.tipo != TipoNodo.VACIO && (v.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO || nd.combustible())) {
                 v.params.pisoOrigen = piso;
                 v.params.filaOrigen = f % m.filasPorPiso;
                 v.params.colOrigen = c;
@@ -162,6 +179,10 @@ public class PanelEdificio extends JPanel {
                     g.setColor(new Color(1f, 0.1f, 0.0f, a));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 }
+                if (nd.humo > 0) {
+                    g.setColor(new Color(55, 60, 67, (int)(1.5 * nd.humo)));
+                    g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
+                }
                 g.setColor(new Color(90, 90, 90));
                 g.drawRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 g.setColor(new Color(60, 60, 60, 160));
@@ -178,6 +199,11 @@ public class PanelEdificio extends JPanel {
                     g.drawLine(x + 8, y + 8, x + CELL - 8, y + CELL - 8);
                     g.drawLine(x + CELL - 8, y + 8, x + 8, y + CELL - 8);
                     g.setStroke(new BasicStroke(1));
+                }
+                if (nd.fuegoActivo) {
+                    g.setColor(new Color(190, 45, 0));
+                    g.fillPolygon(new int[]{x + CELL - 13, x + CELL - 7, x + CELL - 3},
+                            new int[]{y + 15, y + 3, y + 15}, 3);
                 }
                 if (v.verDepartamentos && nd.departamento > 0) {
                     g.setColor(Color.getHSBColor((nd.departamento * 0.618034f) % 1, 0.85f, 0.7f));
@@ -232,7 +258,11 @@ public class PanelEdificio extends JPanel {
             g.drawOval(cx - d / 2, cy - d / 2, d, d);
             g.setStroke(new BasicStroke(1));
             g.setColor(Color.WHITE);
-            g.drawString(String.valueOf(p.tipo.letra), cx - 3, cy + 4);
+            g.drawString(p instanceof evacua.personas.Bombero ? "B" : String.valueOf(p.tipo.letra), cx - 3, cy + 4);
+            if (v.motor != null && v.motor.params.desastre == evacua.simulacion.TipoDesastre.INCENDIO) {
+                g.setColor(Color.BLACK);
+                g.drawString(p.tickMuerte >= 0 ? "×" : p.alertada ? "!" : "·", cx - 11, cy - 5);
+            }
             if (p.confundida()) {
                 g.setColor(Color.WHITE);
                 g.fillOval(cx - 12, cy - 13, 9, 10);

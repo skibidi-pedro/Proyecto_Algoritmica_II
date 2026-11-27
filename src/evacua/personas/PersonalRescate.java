@@ -13,7 +13,7 @@ public class PersonalRescate extends Persona {
     @Override
     public void aumentarEstres(double incremento) {
         super.aumentarEstres(incremento * FACTOR_ESTRES);
-        if (estres >= NivelEstres.MAX) retirado = true;
+        if (estres >= limiteEstres()) retirado = true;
     }
 
     @Override
@@ -23,7 +23,7 @@ public class PersonalRescate extends Persona {
 
     public Persona elegirObjetivo(List<Persona> todas,
                                   java.util.function.BiPredicate<PersonalRescate, Persona> alcanzable) {
-        if (estres >= NivelEstres.MAX) retirado = true;
+        if (estres >= limiteEstres()) retirado = true;
         if (retirado || transportando || !activa() || salud == EstadoSalud.INCAPACITADO) return null;
         java.util.List<Persona> candidatos = new java.util.ArrayList<>();
         for (Persona q : todas) {
@@ -39,7 +39,7 @@ public class PersonalRescate extends Persona {
             for (Persona otro : todas) {
                 if (otro == this || !(otro instanceof PersonalRescate)) continue;
                 PersonalRescate r = (PersonalRescate) otro;
-                if (!r.activa() || r.retirado || r.estres >= NivelEstres.MAX || r.transportando
+                if (!r.activa() || r.retirado || r.estres >= r.limiteEstres() || r.transportando
                         || r.salud == EstadoSalud.INCAPACITADO) continue;
                 if (r.objetivo != q && (necesarios == 1 || r.objetivo != null && r.objetivo.activa())) continue;
                 if (!alcanzable.test(r, q)) continue;

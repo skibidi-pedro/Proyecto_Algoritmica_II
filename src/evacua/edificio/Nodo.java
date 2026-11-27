@@ -4,6 +4,29 @@ public class Nodo {
     public TipoNodo tipo = TipoNodo.VACIO;
     public int departamento;
     public boolean fuegoActivo;
+    public double humo;
+    public int ticksArdiendo, calorPuerta, extincion;
+    public boolean protegido;
+
+    public boolean combustible() {
+        return tipo != TipoNodo.VACIO && (tipo != TipoNodo.PUERTA || danado);
+    }
+
+    public boolean permeable() { return combustible() && !bloqueado; }
+
+    public double costoHumo() {
+        if (humo >= 95) return 5;
+        if (humo >= 75) return 3;
+        if (humo >= 50) return 2;
+        return humo > 10 ? 1.5 : 1;
+    }
+
+    public double velocidadHumo() {
+        if (humo >= 95) return 0.7;
+        if (humo >= 75) return 0.8;
+        return humo >= 50 ? 0.9 : 1;
+    }
+
     private double gas;
     public double concentracionGas() { return gas; }
     public void fijarGas(double porcentaje) {

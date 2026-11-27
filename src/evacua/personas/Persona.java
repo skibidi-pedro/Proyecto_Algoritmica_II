@@ -6,7 +6,10 @@ import java.util.List;
 public abstract class Persona {
     public final int id;
     public final TipoPersona tipo;
-    public final EstadoSalud salud;
+    public final EstadoSalud saludInicial;
+    public EstadoSalud salud;
+    public boolean alertada;
+    public int ticksHumo;
     public int f, c;
     public double estres, acum;
     public boolean evacuada, asistida;
@@ -36,7 +39,7 @@ public abstract class Persona {
     protected Persona(int id, TipoPersona tipo, EstadoSalud salud, int f, int c) {
         this.id = id;
         this.tipo = tipo;
-        this.salud = salud;
+        this.saludInicial = this.salud = salud;
         this.f = f;
         this.c = c;
     }
@@ -64,12 +67,14 @@ public abstract class Persona {
         departamentoInicial = tipo == TipoPersona.RESCATE ? 0 : Integer.parseInt(dep.substring(4));
     }
 
+    public double limiteEstres() { return NivelEstres.MAX; }
+
     public void aumentarEstres(double d) {
-        if (activa()) estres = NivelEstres.limitar(estres + d);
+        if (activa()) estres = Math.max(0, Math.min(limiteEstres(), estres + d));
     }
 
     public void reducirEstres(double d) {
-        estres = NivelEstres.limitar(estres - d);
+        estres = Math.max(0, Math.min(limiteEstres(), estres - d));
     }
 
     public String etiqueta() {

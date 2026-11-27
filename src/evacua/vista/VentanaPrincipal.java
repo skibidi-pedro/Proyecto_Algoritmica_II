@@ -368,6 +368,7 @@ public class VentanaPrincipal extends JFrame {
                     + (motor.emergencia().restantes(motor.tick) > 0 ? "  |  Refuerzos en " + motor.emergencia().restantes(motor.tick) + " ticks" : "")
                     + (motor.emergencia().restantes(motor.tick) == 0 && motor.emergencia().refuerzosPendientes() > 0
                             ? "  |  Refuerzos pendientes: " + motor.emergencia().refuerzosPendientes() : "")
+                    + (!motor.resultadoIncendio.isEmpty() ? "  |  " + motor.resultadoIncendio : "")
                     + (motor.terminado ? "  |  TERMINADA" : ""));
         }
     }
@@ -612,7 +613,7 @@ public class VentanaPrincipal extends JFrame {
             List<ComparadorEscenarios.Fila> filas = new java.util.ArrayList<>();
             for (File f : new File[]{a, b}) filas.add(ComparadorEscenarios.simular(f.getName(), GestorEscenarios.leer(f), params));
             mostrarTexto("Comparar escenarios", ComparadorEscenarios.aTexto(filas));
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -665,7 +666,7 @@ public class VentanaPrincipal extends JFrame {
                 return;
             }
             mostrarTexto("Comparar escenarios guardados", ComparadorEscenarios.aTexto(ComparadorEscenarios.compararGuardados(bd, sel, params)));
-        } catch (IllegalArgumentException | java.io.IOException ex) {
+        } catch (IllegalArgumentException | IllegalStateException | java.io.IOException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
