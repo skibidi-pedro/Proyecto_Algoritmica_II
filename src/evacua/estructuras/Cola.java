@@ -2,8 +2,7 @@ package evacua.estructuras;
 
 import java.util.NoSuchElementException;
 
-/** Cola FIFO (propia), sobre lista simple. */
-public class Cola<T> {
+public class Cola<T> implements Iterable<T> {
     private final ListaSimple<T> datos = new ListaSimple<>();
 
     public void encolar(T x) {
@@ -18,6 +17,11 @@ public class Cola<T> {
     public T frente() {
         if (datos.estaVacia()) throw new NoSuchElementException("cola vacia");
         return datos.obtener(0);
+    }
+
+    @Override
+    public java.util.Iterator<T> iterator() {
+        return datos.iterator();
     }
 
     public int tamano() {

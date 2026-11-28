@@ -1,8 +1,8 @@
 package evacua.vista;
 
 import evacua.edificio.Edificio;
+import evacua.edificio.HistorialEdicion;
 import evacua.edificio.TipoNodo;
-import evacua.persistencia.BaseDatos;
 import evacua.persistencia.GestorEscenarios;
 import evacua.personas.EstadoSalud;
 import evacua.personas.Persona;
@@ -13,6 +13,8 @@ import evacua.reportes.ReporteSimulacion;
 import evacua.rutas.BuscadorRutas;
 import evacua.rutas.ResultadoRuta;
 import evacua.simulacion.MotorSimulacion;
+import evacua.simulacion.TipoDesastre;
+import evacua.simulacion.RegistroSalida;
 import evacua.simulacion.ParametrosSimulacion;
 
 import javax.swing.*;
@@ -24,14 +26,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 
-/** Ventana principal (Swing): botones de casos de uso, cuadricula, estado y registro. */
 public class VentanaPrincipal extends JFrame {
 
     Edificio mapa;
     MotorSimulacion motor;
     ParametrosSimulacion params = new ParametrosSimulacion();
     Herramienta herramienta = Herramienta.NINGUNA;
-    boolean verCalor;
+    boolean verCalor, verDepartamentos;
     PanelEdificio grid;
     JTextArea logArea;
     JLabel estado;
@@ -41,9 +42,12 @@ public class VentanaPrincipal extends JFrame {
     JCheckBox chkTiempoReal;
     JSlider velocidad;
     File ultimoDir = new File(".");
-    final BaseDatos bd = new BaseDatos("datos");
-    int pisoActual;            // 0 = piso 1
+    final HistorialEdicion historial = new HistorialEdicion();
+    JButton btnDeshacer;
+    int pisoActual;
     JPanel panelPisos;
+    JTextArea txtSalidas;
+    JScrollPane panelSalidas;
     int pisosMostrados = -1;
     boolean selectorEnEdicion;
 
@@ -52,9 +56,9 @@ public class VentanaPrincipal extends JFrame {
     }
 
     public VentanaPrincipal() {
-        super("Evacua - Prototipo de interfaz");
+        super("EVACUA");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        mapa = crearDemo();
+        mapa = crearEdificioInicial();
         grid = new PanelEdificio(this);
         timer = new javax.swing.Timer(250, e -> avanzar());
 
@@ -66,6 +70,13 @@ public class VentanaPrincipal extends JFrame {
         panelPisos.setBorder(new CompoundBorder(new TitledBorder("Pisos"), new EmptyBorder(2, 4, 4, 4)));
         JPanel este = new JPanel(new BorderLayout());
         este.add(panelPisos, BorderLayout.NORTH);
+        txtSalidas = new JTextArea();
+        txtSalidas.setEditable(false);
+        txtSalidas.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        panelSalidas = new JScrollPane(txtSalidas);
+        panelSalidas.setBorder(new TitledBorder("Salieron (0)"));
+        panelSalidas.setPreferredSize(new Dimension(150, 100));
+        este.add(panelSalidas, BorderLayout.CENTER);
         add(este, BorderLayout.EAST);
 
         logArea = new JTextArea(6, 40);
@@ -78,14 +89,20 @@ public class VentanaPrincipal extends JFrame {
         sur.add(new JScrollPane(logArea), BorderLayout.CENTER);
         add(sur, BorderLayout.SOUTH);
 
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("control Z"), "deshacer");
+        getRootPane().getActionMap().put("deshacer", new AbstractAction() {
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                deshacer();
+            }
+        });
         grid.ajustarTamano();
         actualizarEstado();
-        log("Prototipo listo. Elija una herramienta o pulse 'Iniciar emergencia y simular evacuacion'.");
+        log("Listo. Elija una herramienta o pulse 'Iniciar emergencia y simular evacuacion'.");
         setSize(1280, 840);
         setLocationRelativeTo(null);
     }
 
-    Edificio crearDemo() {
+    Edificio crearEdificioInicial() {
         Edificio m = new Edificio(12, 20, 3);
         m.rect(TipoNodo.PASILLO, 5, 1, 6, 18);
         m.rect(TipoNodo.HABITACION, 1, 1, 3, 5);
@@ -107,7 +124,7 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.INCAPACITADO, 9, 9);
         m.agregar(TipoPersona.RESCATE, EstadoSalud.SANO, 2, 15);
-        // pisos 2 y 3: mismo plano, escalera en la misma posicion y sin salidas (se evacua por el piso 1)
+
         for (int piso = 1; piso < 3; piso++) {
             int b = piso * 12;
             m.rect(TipoNodo.PASILLO, b + 5, 1, b + 6, 18);
@@ -122,10 +139,9 @@ public class VentanaPrincipal extends JFrame {
         m.agregar(TipoPersona.ADULTO, EstadoSalud.SANO, 12 + 2, 3);
         m.agregar(TipoPersona.NINO, EstadoSalud.SANO, 12 + 9, 15);
         m.agregar(TipoPersona.ADULTO, EstadoSalud.HERIDO, 24 + 2, 9);
+        m.actualizarDepartamentos();
         return m;
     }
-
-    // ---------- panel de casos de uso (botones) ----------
 
     JComponent crearPanelIzquierdo() {
         JPanel p = new JPanel();
@@ -133,46 +149,42 @@ public class VentanaPrincipal extends JFrame {
         p.setBorder(new EmptyBorder(6, 6, 6, 0));
         ButtonGroup herramientas = new ButtonGroup();
 
-        // Escenarios y persistencia
         p.add(grupo("Escenarios y persistencia",
-                boton("Cargar escenario", "Lee un escenario .txt (plano + personas)", e -> cargarEscenario()),
-                boton("Guardar escenario", "Guarda plano, bloqueos y personas en un .txt", e -> guardarEscenario()),
-                boton("Importar plano del edificio", "Lee y valida un plano .json, .xml o .txt", e -> importarPlano()),
-                boton("Guardar en base de datos", "Guarda el escenario (RN-10) en la base de datos embebida", e -> guardarEnBD()),
-                boton("Cargar de base de datos", "Carga un escenario guardado", e -> cargarDeBD()),
-                boton("Comparar escenarios guardados", "Simula escenarios de la base de datos y compara resultados", e -> compararGuardados()),
+                boton("Cargar escenario", "Lee un escenario TXT, JSON o XML", e -> cargarEscenario()),
+                boton("Guardar escenario", "Guarda el escenario según la extensión TXT, JSON o XML", e -> guardarEscenario()),
                 boton("Comparar escenarios", "Simula dos escenarios y compara resultados", e -> compararEscenarios())));
 
-        // Gestionar edificio (nodos y conexiones)
-        p.add(grupo("Gestionar edificio (nodos y conexiones)",
+        btnDeshacer = boton("Deshacer (Ctrl+Z)", "Deshace el ultimo cambio al edificio (solo en modo edicion)", e -> deshacer());
+        p.add(grupo("Gestionar edificio",
+                btnDeshacer,
                 tool("Sin herramienta", Herramienta.NINGUNA, herramientas, true, "Solo observar"),
-                tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Pinta nodos de tipo habitacion"),
-                tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pinta nodos de tipo pasillo"),
-                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Pinta escaleras. Conectan con la escalera de la misma posicion en el piso de arriba y abajo"),
-                tool("Salida", Herramienta.SALIDA, herramientas, false, "Pinta nodos de tipo salida"),
-                tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Elimina el nodo y las personas sobre el")));
+                tool("Habitacion", Herramienta.HABITACION, herramientas, false, "Habitacion"),
+                tool("Pasillo", Herramienta.PASILLO, herramientas, false, "Pasillo"),
+                tool("Escalera", Herramienta.ESCALERA, herramientas, false, "Escalera"),
+                tool("Salida", Herramienta.SALIDA, herramientas, false, "Salida"),
+                tool("Puerta", Herramienta.PUERTA, herramientas, false, "Puerta"),
+                tool("Borrar nodo", Herramienta.BORRAR, herramientas, false, "Borrar nodo")));
 
-        // Registrar personas
         cmbTipo = new JComboBox<>(TipoPersona.values());
         cmbSalud = new JComboBox<>(EstadoSalud.values());
         p.add(grupo("Registrar personas",
                 cmbTipo, cmbSalud,
+                boton("Gestionar familiares", "Consultar integrantes por departamento", e -> gestionarFamiliares()),
                 tool("Colocar / quitar persona", Herramienta.PERSONA, herramientas, false,
                         "Clic en un nodo libre para colocar; clic otra vez para quitar")));
 
-        // Bloqueos
         p.add(grupo("Bloqueos",
+                tool("Estado del nodo", Herramienta.ESTADO, herramientas, false, "Elija la condición de una zona"),
                 tool("Bloquear / desbloquear zonas", Herramienta.BLOQUEO, herramientas, false,
                         "Clic o arrastre sobre nodos. Funciona tambien durante la simulacion")));
 
-        // Simulacion
         chkTiempoReal = new JCheckBox("Visualizar simulacion en tiempo real", true);
         velocidad = new JSlider(1, 10, 5);
         velocidad.setToolTipText("Velocidad de la animacion");
         velocidad.addChangeListener(e -> timer.setDelay(1100 - velocidad.getValue() * 100));
         timer.setDelay(1100 - velocidad.getValue() * 100);
         p.add(grupo("Simulacion",
-                boton("Configurar parametros de simulacion", "Probabilidad, semilla, tiempo limite, estres, capacidad, algoritmo", e -> configurar()),
+                boton("Configurar parametros de simulacion", "Escenario, semilla, capacidad y algoritmo", e -> configurar()),
                 boton("Iniciar emergencia y simular evacuacion", "Parte desde el escenario actual", e -> iniciar()),
                 chkTiempoReal, velocidad,
                 boton("Detener simulacion", "Pausa la animacion (conserva resultados)", e -> timer.stop()),
@@ -180,14 +192,18 @@ public class VentanaPrincipal extends JFrame {
                 boton("Volver a edicion", "Descarta la simulacion y vuelve al escenario editable", e -> volverAEdicion()),
                 boton("Comparar Dijkstra vs A*", "Compara nodos explorados y tiempo de calculo", e -> compararAlgoritmos())));
 
-        // Analisis
         JToggleButton calor = new JToggleButton("Ver mapa de calor");
-        calor.setToolTipText("Colorea los nodos segun su ocupacion acumulada");
+        calor.setToolTipText("Colorea los nodos por ocupación actual y, al terminar, por visitas acumuladas");
         calor.addActionListener(e -> {
             verCalor = calor.isSelected();
             grid.repaint();
         });
-        p.add(grupo("Analisis",
+        JToggleButton departamentos = new JToggleButton("Mostrar / ocultar departamentos");
+        departamentos.addActionListener(e -> {
+            verDepartamentos = departamentos.isSelected();
+            grid.repaint();
+        });
+        p.add(grupo("Analisis", departamentos,
                 calor,
                 boton("Generar reporte de simulacion", "Estadisticas, tiempos y cuellos de botella", e -> reporte()),
                 boton("Exportar reporte individual por persona", "Linea de tiempo de una persona a .txt", e -> exportarIndividual()),
@@ -221,7 +237,21 @@ public class VentanaPrincipal extends JFrame {
             x.setFont(x.getFont().deriveFont(10f));
             l.add(x);
         }
-        return l;
+        JPanel leyenda = new JPanel();
+        leyenda.setLayout(new BoxLayout(leyenda, BoxLayout.Y_AXIS));
+        leyenda.add(l);
+        for (String texto : new String[]{
+                "Personas: B bombero · Z Hazmat",
+                "! alertada   |   · sin aviso   |   ? confundida   |   × fallecida",
+                "+ rojo: herida o enferma · + negro: incapacitada",
+                "Borde rojo de persona: estrés alto",
+                "Casillas: D dañada · ! peligrosa · X bloqueada",
+                "Rojo con triángulo: fuego · gris: humo",
+                "Fuente de gas: cuadrado naranja activa, verde reparada",
+                "Dep-###: identificador del departamento"}) {
+            leyenda.add(new JLabel(texto));
+        }
+        return leyenda;
     }
 
     JPanel grupo(String titulo, Component... comps) {
@@ -248,21 +278,18 @@ public class VentanaPrincipal extends JFrame {
         return b;
     }
 
-    // ---------- acciones ----------
-
     void log(String s) {
         if (logArea == null) return;
         logArea.append(s + "\n");
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
-    /** Selector de pisos (a la derecha): un boton por piso y, en modo edicion, un boton para agregar piso. */
     void reconstruirSelector() {
         Edificio m = vista();
         if (pisoActual >= m.pisos) pisoActual = m.pisos - 1;
         panelPisos.removeAll();
         ButtonGroup grupo = new ButtonGroup();
-        for (int k = m.pisos - 1; k >= 0; k--) {   // el piso mas alto arriba, como en un edificio
+        for (int k = m.pisos - 1; k >= 0; k--) {
             final int piso = k;
             JToggleButton b = new JToggleButton("Piso " + (k + 1), k == pisoActual);
             b.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -288,8 +315,30 @@ public class VentanaPrincipal extends JFrame {
         panelPisos.repaint();
     }
 
+    void guardarParaDeshacer() {
+        historial.guardar(mapa);
+        btnDeshacer.setEnabled(motor == null);
+    }
+
+    void deshacer() {
+        if (motor != null) {
+            log("Para deshacer vuelva primero a edicion.");
+            return;
+        }
+        Edificio anterior = historial.deshacer();
+        if (anterior == null) {
+            log("No hay nada que deshacer.");
+            return;
+        }
+        mapa = anterior;
+        grid.ajustarTamano();
+        actualizarEstado();
+        log("Cambio deshecho (" + historial.tamano() + " mas en el historial).");
+    }
+
     void agregarPiso() {
         if (motor != null) return;
+        guardarParaDeshacer();
         mapa = mapa.copiaConPisos(mapa.pisos + 1);
         pisoActual = mapa.pisos - 1;
         grid.repaint();
@@ -297,14 +346,48 @@ public class VentanaPrincipal extends JFrame {
         log("Piso " + mapa.pisos + " agregado. Pinte sus nodos; las escaleras se conectan con las del piso de abajo.");
     }
 
+    void actualizarSalidas() {
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        if (motor != null)
+            for (RegistroSalida r : motor.salidas) {
+                sb.append(r.orden).append(". P").append(r.id).append("  t=").append(r.tiempo).append('\n');
+                n++;
+            }
+        txtSalidas.setText(sb.toString());
+        ((TitledBorder) panelSalidas.getBorder()).setTitle("Salieron (" + n + ")");
+        panelSalidas.repaint();
+    }
+
     void actualizarEstado() {
         Edificio m = vista();
+        btnDeshacer.setEnabled(motor == null && historial.puedeDeshacer());
+        actualizarSalidas();
         if (m.pisos != pisosMostrados || selectorEnEdicion != (motor == null)) reconstruirSelector();
-        if (motor == null) {
+        if (seleccionandoOrigen) {
+            estado.setText("Seleccione el piso y haga clic en un nodo de origen.");
+        } else if (motor == null) {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
         } else {
-            estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
-                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.terminado ? "  |  TERMINADA" : ""));
+            estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + motor.residentes()
+                    + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.params.desastre == evacua.simulacion.TipoDesastre.TERREMOTO
+                            ? "  |  Terremoto " + motor.params.nivel + (motor.emergencia().ticksTemblorRestantes(motor.tick) > 0
+                                ? " activo: " + motor.emergencia().ticksTemblorRestantes(motor.tick) + " ticks restantes" : " finalizado") : "")
+                    + (motor.emergencia().restantes(motor.tick) > 0 ? "  |  Refuerzos en " + motor.emergencia().restantes(motor.tick) + " ticks" : "")
+                    + (motor.emergencia().restantes(motor.tick) == 0 && motor.emergencia().refuerzosPendientes() > 0
+                            ? "  |  Refuerzos pendientes: " + motor.emergencia().refuerzosPendientes() : "")
+                    + (!motor.resultadoEscenario().isEmpty() ? "  |  " + motor.resultadoEscenario() : "")
+                    + (motor.terminado ? "  |  TERMINADA" : ""));
+        }
+    }
+
+    void editarConexion() {
+        boolean corriendo = timer.isRunning();
+        timer.stop();
+        try {
+            EditorConexion.abrir(this);
+        } finally {
+            if (corriendo) timer.start();
         }
     }
 
@@ -313,15 +396,42 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this, "Registre al menos una persona antes de iniciar.", "Sin personas", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        MotorSimulacion siguiente = new MotorSimulacion(mapa.copia(), params.copia(), this::log);
+        try {
+            siguiente.iniciar();
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Configuración incompleta", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         timer.stop();
-        Edificio copia = mapa.copia();
-        motor = new MotorSimulacion(copia, params.copia(), this::log);
-        motor.iniciar();
+        motor = siguiente;
+        if (motor.params.desastre == TipoDesastre.INCENDIO) {
+            int origen = motor.emergencia().origen();
+            int fila = origen / motor.mapa.cols;
+            int columna = origen % motor.mapa.cols;
+            pisoActual = motor.mapa.piso(fila);
+            int filaEnPiso = fila % motor.mapa.filasPorPiso;
+            reconstruirSelector();
+            int lado = PanelEdificio.CELL;
+            grid.scrollRectToVisible(new Rectangle(columna * lado, filaEnPiso * lado, lado, lado));
+            log("Foco de incendio en piso " + (pisoActual + 1) + ", fila " + filaEnPiso + ", columna " + columna + ".");
+        }
+        motor.alTerminar = () -> {
+            try {
+                java.nio.file.Path base = new File("datos", "reportes").toPath();
+                Files.createDirectories(base);
+                File carpeta = Files.createTempDirectory(base, "simulacion-").toFile();
+                int cantidad = ExportadorIndividual.exportarTodos(motor, carpeta);
+                log(cantidad + " reportes individuales guardados en " + carpeta);
+            } catch (java.io.IOException ex) {
+                log("No se pudieron guardar los reportes individuales: " + ex.getMessage());
+            }
+        };
         grid.ajustarTamano();
         if (chkTiempoReal.isSelected()) {
             timer.start();
         } else {
-            while (motor.paso()) { /* corre sin animar */ }
+            while (motor.paso()) {  }
         }
         grid.repaint();
         actualizarEstado();
@@ -355,40 +465,77 @@ public class VentanaPrincipal extends JFrame {
         grid.repaint();
     }
 
+    void gestionarFamiliares() {
+        Edificio edificio = vista();
+        java.util.SortedMap<Integer, StringBuilder> grupos = new java.util.TreeMap<>();
+        for (evacua.edificio.Nodo[] fila : edificio.n) for (evacua.edificio.Nodo n : fila)
+            if (n.departamento > 0) grupos.computeIfAbsent(n.departamento, id -> new StringBuilder());
+        for (Persona p : edificio.personas) {
+            if (p.tipo == TipoPersona.RESCATE || p.departamentoInicial == 0) continue;
+            String tipo = p.tipo == TipoPersona.NINO ? "NIÑO" : p.tipo == TipoPersona.MOVILIDAD ? "MOVILIDAD REDUCIDA" : "ADULTO";
+            grupos.computeIfAbsent(p.departamentoInicial, id -> new StringBuilder())
+                    .append("  P").append(p.id).append(" — ").append(tipo).append("\n");
+        }
+        StringBuilder texto = new StringBuilder();
+        grupos.forEach((id, grupo) -> texto.append(evacua.edificio.Departamentos.identificador(id)).append("\n")
+                .append(grupo.length() == 0 ? "  Sin integrantes\n" : grupo).append("\n"));
+        mostrarTexto("Gestionar familiares", grupos.isEmpty() ? "Sin departamentos detectados." : texto.toString());
+    }
+
+    boolean seleccionandoOrigen;
+
     void configurar() {
-        JTextField prob = new JTextField(String.valueOf(params.prob));
         JTextField sem = new JTextField(String.valueOf(params.semilla));
-        JTextField lim = new JTextField(String.valueOf(params.limite));
-        JTextField umb = new JTextField(String.valueOf(params.umbral));
         JTextField cap = new JTextField(String.valueOf(params.capacidad));
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
         alg.setSelectedIndex(params.astar ? 0 : 1);
         JPanel f = new JPanel(new GridLayout(0, 2, 6, 6));
-        f.add(new JLabel("Probabilidad de evento por tick (0-1)"));
-        f.add(prob);
+        JComboBox<evacua.simulacion.TipoDesastre> desastre = new JComboBox<>(evacua.simulacion.TipoDesastre.values());
+        desastre.setSelectedItem(params.desastre);
+        JComboBox<evacua.simulacion.Intensidad> intensidad = new JComboBox<>(evacua.simulacion.Intensidad.values());
+        intensidad.setSelectedItem(params.nivel);
+        JComboBox<evacua.simulacion.TipoGas> gas = new JComboBox<>(evacua.simulacion.TipoGas.values());
+        gas.setSelectedItem(params.gas);
+        JComboBox<String> origen = new JComboBox<>(new String[]{"Aleatorio", "Seleccionar en el plano"});
+        origen.setSelectedIndex(params.origenManual ? 1 : 0);
+        Runnable habilitar = () -> {
+            evacua.simulacion.TipoDesastre tipo = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            gas.setEnabled(tipo == evacua.simulacion.TipoDesastre.FUGA_DE_GAS);
+            origen.setEnabled(tipo.requiereOrigen());
+            intensidad.setEnabled(tipo != evacua.simulacion.TipoDesastre.NINGUNO);
+        };
+        desastre.addActionListener(e -> habilitar.run());
+        habilitar.run();
+        f.add(new JLabel("Escenario"));
+        f.add(desastre);
+        f.add(new JLabel("Tipo de gas"));
+        f.add(gas);
+        f.add(new JLabel("Intensidad"));
+        f.add(intensidad);
+        f.add(new JLabel("Origen"));
+        f.add(origen);
         f.add(new JLabel("Semilla aleatoria"));
         f.add(sem);
-        f.add(new JLabel("Tiempo limite (ticks)"));
-        f.add(lim);
-        f.add(new JLabel("Umbral de estres"));
-        f.add(umb);
-        f.add(new JLabel("Capacidad por nodo"));
+        f.add(new JLabel("Capacidad base de cada casilla"));
         f.add(cap);
         f.add(new JLabel("Algoritmo de ruta"));
         f.add(alg);
         if (JOptionPane.showConfirmDialog(this, f, "Configurar parametros de simulacion",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
         try {
-            double pr = Double.parseDouble(prob.getText().trim());
             long se = Long.parseLong(sem.getText().trim());
-            int li = Integer.parseInt(lim.getText().trim());
-            double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
-            if (pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
-            params.prob = pr;
+            if (ca < 1) throw new NumberFormatException();
+            params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            params.gas = (evacua.simulacion.TipoGas) gas.getSelectedItem();
+            params.nivel = (evacua.simulacion.Intensidad) intensidad.getSelectedItem();
+            params.origenManual = params.desastre.requiereOrigen() && origen.getSelectedIndex() == 1;
+            seleccionandoOrigen = params.origenManual;
+            if (seleccionandoOrigen) {
+                params.pisoOrigen = params.filaOrigen = params.colOrigen = -1;
+                log("Seleccione el piso y haga clic en la casilla de origen.");
+            }
             params.semilla = se;
-            params.limite = li;
-            params.umbral = um;
             params.capacidad = ca;
             params.astar = alg.getSelectedIndex() == 0;
             log("Parametros actualizados.");
@@ -409,12 +556,12 @@ public class VentanaPrincipal extends JFrame {
         return f;
     }
 
-
     void cargarEscenario() {
         File f = elegirArchivo(true, null);
         if (f == null) return;
         try {
             Edificio m = GestorEscenarios.leer(f);
+            guardarParaDeshacer();
             timer.stop();
             motor = null;
             mapa = m;
@@ -442,24 +589,6 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
-    void importarPlano() {
-        File f = elegirArchivo(true, null);
-        if (f == null) return;
-        try {
-            Edificio m = GestorEscenarios.leer(f);
-            m.personas.clear();
-            timer.stop();
-            motor = null;
-            mapa = m;
-            grid.ajustarTamano();
-            actualizarEstado();
-            log("Plano importado y validado: " + f.getName() + " (" + m.filas + "x" + m.cols + "). Grafo construido.");
-        } catch (IllegalArgumentException ex) {
-            log("Plano rechazado: " + ex.getMessage());
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Errores de validacion del plano", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
     void compararEscenarios() {
         JOptionPane.showMessageDialog(this, "Seleccione el escenario A y luego el escenario B.");
         File a = elegirArchivo(true, null);
@@ -470,59 +599,7 @@ public class VentanaPrincipal extends JFrame {
             List<ComparadorEscenarios.Fila> filas = new java.util.ArrayList<>();
             for (File f : new File[]{a, b}) filas.add(ComparadorEscenarios.simular(f.getName(), GestorEscenarios.leer(f), params));
             mostrarTexto("Comparar escenarios", ComparadorEscenarios.aTexto(filas));
-        } catch (IllegalArgumentException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    void guardarEnBD() {
-        String nombre = JOptionPane.showInputDialog(this, "Nombre del escenario:", "Guardar en base de datos", JOptionPane.QUESTION_MESSAGE);
-        if (nombre == null) return;
-        try {
-            bd.guardar(nombre.trim(), mapa);
-            log("Escenario '" + nombre.trim() + "' guardado en la base de datos.");
-        } catch (IllegalArgumentException | java.io.IOException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "No se pudo guardar", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    void cargarDeBD() {
-        try {
-            List<String> nombres = bd.listar();
-            if (nombres.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "No hay escenarios guardados.", "Base de datos", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            JComboBox<String> cb = new JComboBox<>(nombres.toArray(new String[0]));
-            if (JOptionPane.showConfirmDialog(this, cb, "Escenario a cargar", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
-            Edificio m = bd.cargar((String) cb.getSelectedItem());
-            timer.stop();
-            motor = null;
-            mapa = m;
-            grid.ajustarTamano();
-            actualizarEstado();
-            log("Escenario cargado de la base de datos: " + cb.getSelectedItem() + ".");
-        } catch (IllegalArgumentException | java.io.IOException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "No se pudo cargar", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    void compararGuardados() {
-        try {
-            List<String> nombres = bd.listar();
-            if (nombres.size() < 2) {
-                JOptionPane.showMessageDialog(this, "Guarde al menos dos escenarios en la base de datos.", "Comparar escenarios", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            JList<String> lista = new JList<>(nombres.toArray(new String[0]));
-            if (JOptionPane.showConfirmDialog(this, new JScrollPane(lista), "Seleccione dos o mas escenarios", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
-            List<String> sel = lista.getSelectedValuesList();
-            if (sel.size() < 2) {
-                JOptionPane.showMessageDialog(this, "Seleccione al menos dos escenarios.");
-                return;
-            }
-            mostrarTexto("Comparar escenarios guardados", ComparadorEscenarios.aTexto(ComparadorEscenarios.compararGuardados(bd, sel, params)));
-        } catch (IllegalArgumentException | java.io.IOException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -547,13 +624,16 @@ public class VentanaPrincipal extends JFrame {
         long tD = 0, tA = 0;
         int n = 0;
         sb.append(String.format("%-34s %-22s %-22s%n", "Persona", "Dijkstra (expl./costo)", "A* (expl./costo)"));
+        List<int[]> metas = m.salidas();
         for (Persona p : m.personas) {
-            if (p.evacuada) continue;
-            ResultadoRuta d = BuscadorRutas.buscar(m, p.f, p.c, m.salidas(), false);
-            ResultadoRuta a = BuscadorRutas.buscar(m, p.f, p.c, m.salidas(), true);
+            if (!p.activa()) continue;
+            ResultadoRuta d = motor == null ? BuscadorRutas.paraPersona(m, p, metas, false, null)
+                    : motor.evaluarRuta(p, metas, false);
+            ResultadoRuta a = motor == null ? BuscadorRutas.paraPersona(m, p, metas, true, null)
+                    : motor.evaluarRuta(p, metas, true);
             sb.append(String.format("%-34s %-22s %-22s%n", p.etiqueta(),
-                    d.explorados + " / " + (d.ruta == null ? "sin ruta" : (int) d.costo),
-                    a.explorados + " / " + (a.ruta == null ? "sin ruta" : (int) a.costo)));
+                    d.explorados + " / " + (d.ruta == null ? "sin ruta" : d.costo),
+                    a.explorados + " / " + (a.ruta == null ? "sin ruta" : a.costo)));
             eD += d.explorados;
             eA += a.explorados;
             tD += d.nanos;

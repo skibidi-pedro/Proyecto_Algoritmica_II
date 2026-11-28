@@ -1,0 +1,10 @@
+#PISO 1
+HH.HH
+HD.DH
+PPPPP
+..S..
+#PISO 2
+HH...
+HD...
+PPPPP
+..S..

@@ -1,16 +1,12 @@
 package evacua.reportes;
 
 import evacua.edificio.Edificio;
-import evacua.persistencia.BaseDatos;
 import evacua.simulacion.MotorSimulacion;
 import evacua.simulacion.ParametrosSimulacion;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Compara el resultado de simular varios escenarios con los mismos parametros. */
 public final class ComparadorEscenarios {
     private ComparadorEscenarios() {
     }
@@ -21,37 +17,23 @@ public final class ComparadorEscenarios {
         public int personas, evacuadas, ticks;
         public double tiempoPromedio, estresPromedio;
 
-        public String aCsv() {
-            return String.format(Locale.ROOT, "%s,%s,%d,%d,%d,%d,%.2f,%.2f", nombre, algoritmo, semilla, personas, evacuadas, ticks, tiempoPromedio, estresPromedio);
-        }
     }
 
-    /** Simula el edificio (sin tocar el original) hasta que termine y resume el resultado. */
     public static Fila simular(String nombre, Edificio e, ParametrosSimulacion params) {
         MotorSimulacion m = new MotorSimulacion(e.copia(), params.copia(), s -> { });
         m.iniciar();
-        while (m.paso()) { /* sin animar */ }
+        while (m.paso()) {  }
+        if (!m.terminado) throw new IllegalStateException(nombre + ": " + m.resultadoEscenario());
         Fila f = new Fila();
         f.nombre = nombre;
         f.algoritmo = params.astar ? "A*" : "Dijkstra";
         f.semilla = params.semilla;
-        f.personas = m.mapa.personas.size();
+        f.personas = m.residentes();
         f.evacuadas = m.evacuadas();
         f.ticks = m.tick;
         f.tiempoPromedio = m.promedioEvac();
         f.estresPromedio = m.promedioEstres();
         return f;
-    }
-
-    /** Compara escenarios guardados en la base de datos y registra cada resultado en su tabla. */
-    public static List<Fila> compararGuardados(BaseDatos bd, List<String> nombres, ParametrosSimulacion params) throws IOException {
-        List<Fila> r = new ArrayList<>();
-        for (String n : nombres) {
-            Fila f = simular(n, bd.cargar(n), params);
-            bd.registrarResultado(f.aCsv());
-            r.add(f);
-        }
-        return r;
     }
 
     public static String aTexto(List<Fila> filas) {

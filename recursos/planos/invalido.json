@@ -1,9 +1,0 @@
-{
-  "nodos": [
-    {"id": "A", "tipo": "HABITACION", "x": 0, "y": 0},
-    {"id": "A", "tipo": "SOTANO", "x": 1, "y": 0}
-  ],
-  "conexiones": [
-    {"origen": "A", "destino": "Z", "tiempo": 0, "capacidad": 2}
-  ]
-}

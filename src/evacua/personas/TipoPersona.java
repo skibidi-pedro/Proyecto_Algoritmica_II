@@ -8,6 +8,10 @@ public enum TipoPersona {
     MOVILIDAD("Mov. reducida", 'M', 0.5, new Color(140, 60, 160)),
     RESCATE("Rescate", 'R', 1.2, new Color(200, 30, 30));
 
+    public double ocupacion() {
+        return this == NINO || this == RESCATE ? 0.5 : 1.0;
+    }
+
     public final String nombre;
     public final char letra;
     public final double vel;

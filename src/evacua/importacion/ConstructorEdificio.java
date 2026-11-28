@@ -33,8 +33,13 @@ public final class ConstructorEdificio {
         Map<String, int[]> pos = new HashMap<>();
         for (PlanoDatos.NodoDef n : d.nodos) {
             int fila = (n.piso - 1) * filasPiso + n.y;
-            e.crearNodo(ValidadorPlano.tipo(n.tipo), fila, n.x, n.id);
+            // El plano ya está validado. Detectar las regiones una vez al terminar la carga.
+            e.n[fila][n.x].tipo = ValidadorPlano.tipo(n.tipo);
+            e.idANodo.put(n.id, fila * e.cols + n.x);
             e.n[fila][n.x].bloqueado = n.bloqueado;
+            e.n[fila][n.x].danado = n.danado;
+            e.n[fila][n.x].peligroso = n.peligroso;
+            e.n[fila][n.x].bloqueoReparable = n.reparable;
             pos.put(n.id, new int[]{fila, n.x});
         }
         e.conexionesExplicitas = !d.cuadricula;
@@ -42,12 +47,15 @@ public final class ConstructorEdificio {
             int[] a = pos.get(c.origen), b = pos.get(c.destino);
             e.conexiones.removeIf(k -> k.origen == a[0] * e.cols + a[1] && k.destino == b[0] * e.cols + b[1]);
             Conexion nk = new Conexion("C" + c.origen + "_" + c.destino, a[0] * e.cols + a[1], b[0] * e.cols + b[1], c.tiempo, c.capacidad);
+            nk.condicion = evacua.edificio.Condicion.valueOf(c.condicion);
             nk.bloqueada = c.bloqueada;
             e.conexiones.add(nk);
         }
+        evacua.edificio.Departamentos.detectar(e);
         for (PlanoDatos.PersonaDef p : d.personas) {
             int[] a = pos.get(p.nodo);
-            e.agregar(TipoPersona.valueOf(p.tipo), EstadoSalud.valueOf(p.salud), a[0], a[1]);
+            if (!e.caminable(a[0], a[1])) throw new IllegalArgumentException("Persona en nodo bloqueado: " + p.nodo);
+            e.agregar(TipoPersona.valueOf(p.tipo), EstadoSalud.valueOf(p.salud), a[0], a[1]).cargarDepartamento(p.departamento);
         }
         return e;
     }

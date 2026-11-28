@@ -5,7 +5,6 @@ import evacua.estructuras.ListaDoble;
 
 import java.util.Iterator;
 
-/** Bitacora de recorrido de una persona, sobre lista doble. Solo se agrega (RN-11). */
 public class Bitacora implements Iterable<RegistroBitacora> {
     private final ListaDoble<RegistroBitacora> registros = new ListaDoble<>();
 
@@ -21,7 +20,6 @@ public class Bitacora implements Iterable<RegistroBitacora> {
         return registros.ultimo();
     }
 
-    /** Solo se usa al iniciar una simulacion nueva; los registros nunca se editan. */
     public void reiniciar() {
         registros.limpiar();
     }

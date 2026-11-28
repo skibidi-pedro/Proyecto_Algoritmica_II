@@ -9,7 +9,7 @@ public class PlanoDatos {
         public String id, tipo;
         public Integer x, y;       // x = columna, y = fila (dentro del piso)
         public Integer piso = 1;   // desde 1
-        public boolean bloqueado;
+        public boolean bloqueado, danado, peligroso, reparable;
     }
 
     public static class ConexionDef {
@@ -17,9 +17,11 @@ public class PlanoDatos {
         public Double tiempo;
         public Integer capacidad;
         public boolean bloqueada;
+        public String condicion = "NORMAL";
     }
 
     public static class PersonaDef {
+        public String departamento;
         public String nodo, tipo = "ADULTO", salud = "SANO";
     }
 

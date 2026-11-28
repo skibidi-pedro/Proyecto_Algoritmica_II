@@ -1,11 +1,62 @@
 package evacua.edificio;
 
-
-/** Un nodo del edificio (un cuadro de la cuadricula). */
 public class Nodo {
     public TipoNodo tipo = TipoNodo.VACIO;
+    public int departamento;
+    public boolean fuegoActivo;
+    public double humo;
+    public int ticksArdiendo, calorPuerta, extincion;
+    public boolean protegido;
+
+    public boolean combustible() {
+        return tipo != TipoNodo.VACIO && (tipo != TipoNodo.PUERTA || danado);
+    }
+
+    public boolean permeable() { return combustible() && !bloqueado; }
+
+    public double costoHumo() { return costoConcentracion(humo); }
+
+    public static double costoConcentracion(double humo) {
+        if (humo >= 95) return 5;
+        if (humo >= 75) return 3;
+        if (humo >= 50) return 2;
+        return humo > 10 ? 1.5 : 1;
+    }
+
+    public double velocidadHumo() {
+        if (humo >= 95) return 0.7;
+        if (humo >= 75) return 0.8;
+        return humo >= 50 ? 0.9 : 1;
+    }
+
+    private double gas;
+    public double concentracionGas() { return gas; }
+    public void fijarGas(double porcentaje) {
+        if (!Double.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100)
+            throw new IllegalArgumentException("El gas debe estar entre 0 y 100 %.");
+        gas = porcentaje;
+    }
+    public boolean danado;
+    public boolean peligroso;
+    public boolean bloqueoReparable;
+
+    public int capacidadEfectiva(int base) {
+        return capacidadEfectiva(base, false);
+    }
+
+    public boolean accesoRescate() {
+        return tipo == TipoNodo.SALIDA || tipo == TipoNodo.ESCALERA;
+    }
+
+    public int capacidadEfectiva(int base, boolean pasoEspecial) {
+        return bloqueado && !(pasoEspecial && accesoRescate()) ? 0 : Math.max(1, base - (danado ? 1 : 0));
+    }
+
+    public int pesoEntrada() {
+        return (danado ? 2 : 1) * (peligroso ? 5 : 1);
+    }
     public boolean bloqueado;
-    public int ocupacion;   // personas en este instante
-    public int visitas;     // acumulado para el mapa de calor
-    public int esperas;     // acumulado de esperas (cuello de botella)
+    public double ocupacion;
+    public int visitas;
+    public int esperas;
 }

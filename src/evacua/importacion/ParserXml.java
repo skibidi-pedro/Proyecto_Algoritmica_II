@@ -41,6 +41,9 @@ public final class ParserXml {
             n.y = entero(attr(e, "y"));
             n.piso = attr(e, "piso") == null ? Integer.valueOf(1) : entero(attr(e, "piso"));
             n.bloqueado = "true".equalsIgnoreCase(attr(e, "bloqueado"));
+            n.danado = Boolean.parseBoolean(attr(e, "danado"));
+            n.peligroso = Boolean.parseBoolean(attr(e, "peligroso"));
+            n.reparable = Boolean.parseBoolean(attr(e, "reparable"));
             d.nodos.add(n);
         }
         NodeList cs = doc.getElementsByTagName("conexion");
@@ -56,6 +59,7 @@ public final class ParserXml {
             }
             c.capacidad = entero(attr(e, "capacidad"));
             c.bloqueada = "true".equalsIgnoreCase(attr(e, "bloqueada"));
+            if (e.hasAttribute("condicion")) c.condicion = attr(e, "condicion");
             d.conexiones.add(c);
         }
         NodeList ps = doc.getElementsByTagName("persona");
@@ -65,6 +69,7 @@ public final class ParserXml {
             p.nodo = attr(e, "nodo");
             if (attr(e, "tipo") != null) p.tipo = attr(e, "tipo");
             if (attr(e, "salud") != null) p.salud = attr(e, "salud");
+            p.departamento = attr(e, "departamento");
             d.personas.add(p);
         }
         return d;

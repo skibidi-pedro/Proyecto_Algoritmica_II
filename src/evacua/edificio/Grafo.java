@@ -5,11 +5,6 @@ import evacua.rutas.Heuristica;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Grafo del edificio. Nodo = fila * cols + col. Si el edificio no tiene conexiones explicitas,
- * cada nodo se conecta con sus vecinos de la cuadricula (escalera = tiempo 3, resto = 1).
- * Las conexiones personalizadas reemplazan o agregan aristas. Los bloqueos se leen en vivo.
- */
 public class Grafo {
     public static final int CAPACIDAD_DEFECTO = 10;
     private static final int[][] DIRS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -18,7 +13,7 @@ public class Grafo {
         public final int destino;
         public final double tiempo;
         public final int capacidad;
-        final Conexion conexion; // null si es una arista de cuadricula
+        final Conexion conexion;
 
         Arista(int destino, double tiempo, int capacidad, Conexion conexion) {
             this.destino = destino;
@@ -27,15 +22,28 @@ public class Grafo {
             this.conexion = conexion;
         }
 
+        public double costoEntrada(Nodo destino) {
+            return costoEntrada(destino, false);
+        }
+
+        public double costoEntrada(Nodo destino, boolean rescate) {
+            int peso = rescate ? (destino.danado ? 2 : 1) : destino.pesoEntrada();
+            return tiempo * peso * (peligrosa() ? 2 : 1);
+        }
+
+        public boolean peligrosa() {
+            return conexion != null && conexion.condicion == Condicion.PELIGROSO;
+        }
+
         public boolean bloqueada() {
-            return conexion != null && conexion.bloqueada;
+            return conexion != null && (conexion.bloqueada || conexion.condicion == Condicion.DANADO);
         }
     }
 
     public final Edificio edificio;
     public final int cols;
     public final List<Arista>[] ady;
-    /** Tiempo minimo por unidad de distancia Manhattan: convierte la heuristica a tiempo sin sobreestimar (RN-16). */
+
     public final double factorTiempo;
 
     @SuppressWarnings("unchecked")
@@ -55,7 +63,7 @@ public class Grafo {
                         ady[f * cols + c].add(new Arista(nf * cols + nc, t, CAPACIDAD_DEFECTO, null));
                     }
                 }
-            // escaleras: unen la misma (fila, col) de pisos consecutivos
+
             for (int f = 0; f + e.filasPorPiso < e.filas; f++)
                 for (int c = 0; c < e.cols; c++)
                     if (e.n[f][c].tipo == TipoNodo.ESCALERA && e.n[f + e.filasPorPiso][c].tipo == TipoNodo.ESCALERA) {
@@ -81,6 +89,11 @@ public class Grafo {
 
     public static Grafo desde(Edificio e) {
         return new Grafo(e);
+    }
+
+    public Arista arista(int origen, int destino) {
+        for (Arista a : ady[origen]) if (a.destino == destino) return a;
+        return null;
     }
 
     public int total() {

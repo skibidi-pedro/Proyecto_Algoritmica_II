@@ -3,7 +3,6 @@ package evacua.estructuras;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 
-/** Cola de prioridad (heap binario minimo, propia). Sale primero el menor segun el comparador. */
 public class ColaPrioridad<T> {
     private Object[] a = new Object[16];
     private int n;

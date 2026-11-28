@@ -1,8 +1,9 @@
 package evacua.personas;
 
-/** Estres de una persona: valor entre 0 y 100 (RN-12). */
 public final class NivelEstres {
     public static final double MIN = 0, MAX = 100;
+
+    public static final int DANO = 1, PELIGRO = 4, PROXIMIDAD = 1, CONGESTION = 2, BLOQUEO = 3;
 
     private NivelEstres() {
     }
@@ -11,7 +12,6 @@ public final class NivelEstres {
         return Math.max(MIN, Math.min(MAX, v));
     }
 
-    /** Si el estres alcanza el umbral, la persona se mueve mas lento. */
     public static boolean supera(double estres, double umbral) {
         return estres >= umbral;
     }

@@ -29,7 +29,7 @@ public final class ValidadorPlano {
             if (n.id == null || n.id.isEmpty()) err.add(ref + ": falta el identificador.");
             else if (!ids.add(n.id)) err.add(ref + ": identificador repetido.");
             TipoNodo t = n.tipo == null ? null : tipo(n.tipo);
-            if (t == null) err.add(ref + ": tipo invalido (use HABITACION, PASILLO, ESCALERA o SALIDA).");
+            if (t == null) err.add(ref + ": tipo invalido (use HABITACION, PUERTA, PASILLO, ESCALERA o SALIDA).");
             else if (t == TipoNodo.SALIDA) haySalida = true;
             if (n.x == null || n.y == null || n.x < 0 || n.y < 0) err.add(ref + ": coordenadas (x, y) invalidas; deben ser enteros >= 0.");
             else if (celdas.put(n.piso + ":" + n.x + "," + n.y, n.id) != null) err.add(ref + ": la celda (piso " + n.piso + ", " + n.x + "," + n.y + ") ya esta ocupada por otro nodo.");

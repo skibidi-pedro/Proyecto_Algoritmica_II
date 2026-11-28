@@ -32,6 +32,9 @@ public final class ParserJson {
             nd.y = entero(n.get("y"));
             nd.piso = n.containsKey("piso") ? entero(n.get("piso")) : Integer.valueOf(1);
             nd.bloqueado = Boolean.TRUE.equals(n.get("bloqueado"));
+            nd.danado = Boolean.TRUE.equals(n.get("danado"));
+            nd.peligroso = Boolean.TRUE.equals(n.get("peligroso"));
+            nd.reparable = Boolean.TRUE.equals(n.get("reparable"));
             d.nodos.add(nd);
         }
         for (Object o : lista(m, "conexiones")) {
@@ -42,6 +45,7 @@ public final class ParserJson {
             cd.tiempo = n.get("tiempo") instanceof Double ? (Double) n.get("tiempo") : null;
             cd.capacidad = entero(n.get("capacidad"));
             cd.bloqueada = Boolean.TRUE.equals(n.get("bloqueada"));
+            if (n.containsKey("condicion")) cd.condicion = texto(n.get("condicion"));
             d.conexiones.add(cd);
         }
         for (Object o : lista(m, "personas")) {
@@ -50,6 +54,7 @@ public final class ParserJson {
             pd.nodo = texto(n.get("nodo"));
             if (n.get("tipo") != null) pd.tipo = texto(n.get("tipo"));
             if (n.get("salud") != null) pd.salud = texto(n.get("salud"));
+            pd.departamento = texto(n.get("departamento"));
             d.personas.add(pd);
         }
         return d;

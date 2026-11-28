@@ -2,6 +2,7 @@ package evacua.rutas;
 
 import evacua.edificio.Edificio;
 import evacua.edificio.Grafo;
+import evacua.edificio.Nodo;
 import evacua.estructuras.ColaPrioridad;
 
 import java.util.ArrayList;
@@ -9,18 +10,58 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-/**
- * Busqueda de camino minimo en el grafo con cola de prioridad (heap propio).
- * Excluye nodos y conexiones bloqueados (RN-04, RN-05). Dijkstra usa h = 0; A* usa la heuristica.
- */
 public abstract class AlgoritmoRuta {
+    public enum Ambiente {
+        NORMAL, HUMO, GAS;
+        public double multiplicador(Nodo nodo) {
+            if (this == HUMO) return nodo.costoHumo();
+            if (this == GAS) return Nodo.costoConcentracion(nodo.concentracionGas());
+            return 1;
+        }
+    }
+
     public abstract String nombre();
 
-    /** Estimacion del costo restante desde (f, c) hasta la meta mas cercana. */
     protected abstract double h(Grafo g, int f, int c, List<int[]> metas);
 
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas) {
+        return buscar(e, g, sf, sc, metas, null);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas, java.util.function.IntPredicate evitar) {
+        return buscar(e, g, sf, sc, metas, evitar, (a, b) -> false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo, boolean rescate) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, rescate, false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar,
+                                java.util.function.BiPredicate<Integer, Integer> sinCupo,
+                                boolean rescate, boolean pasoEspecial) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, rescate, pasoEspecial, false);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar, java.util.function.BiPredicate<Integer, Integer> sinCupo,
+                                boolean rescate, boolean pasoEspecial, boolean evitarIncendio) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, rescate, pasoEspecial, evitarIncendio ? Ambiente.HUMO : Ambiente.NORMAL);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar, java.util.function.BiPredicate<Integer, Integer> sinCupo,
+                                boolean rescate, boolean pasoEspecial, Ambiente ambiente) {
         long t0 = System.nanoTime();
+        if (!e.caminable(sf, sc, pasoEspecial)) return new ResultadoRuta();
         int C = g.cols, total = g.total();
         double[] dist = new double[total];
         Arrays.fill(dist, Double.MAX_VALUE);
@@ -30,7 +71,7 @@ public abstract class AlgoritmoRuta {
         boolean[] esMeta = new boolean[total];
         List<int[]> validas = new ArrayList<>();
         for (int[] m : metas)
-            if (e.caminable(m[0], m[1])) {
+            if (e.caminable(m[0], m[1], pasoEspecial)) {
                 esMeta[m[0] * C + m[1]] = true;
                 validas.add(m);
             }
@@ -51,8 +92,10 @@ public abstract class AlgoritmoRuta {
             }
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
-                if (a.bloqueada() || !e.caminable(nid / C, nid % C)) continue;
-                double nd = dist[id] + a.tiempo;
+                Nodo nodo = e.n[nid / C][nid % C];
+                if (ambiente == Ambiente.HUMO && nodo.fuegoActivo) continue;
+                if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C, pasoEspecial) || (evitar != null && evitar.test(nid))) continue;
+                double nd = dist[id] + a.costoEntrada(nodo, rescate) * ambiente.multiplicador(nodo);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;
                     prev[nid] = id;
