@@ -502,9 +502,7 @@ public class VentanaPrincipal extends JFrame {
     boolean seleccionandoOrigen;
 
     void configurar() {
-        JTextField prob = new JTextField(String.valueOf(params.prob));
         JTextField sem = new JTextField(String.valueOf(params.semilla));
-        JTextField lim = new JTextField(String.valueOf(params.limite));
         JTextField umb = new JTextField(String.valueOf(params.umbral));
         JTextField cap = new JTextField(String.valueOf(params.capacidad));
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
@@ -526,7 +524,7 @@ public class VentanaPrincipal extends JFrame {
         };
         desastre.addActionListener(e -> habilitar.run());
         habilitar.run();
-        f.add(new JLabel("Desastre"));
+        f.add(new JLabel("Escenario"));
         f.add(desastre);
         f.add(new JLabel("Tipo de gas"));
         f.add(gas);
@@ -534,27 +532,23 @@ public class VentanaPrincipal extends JFrame {
         f.add(intensidad);
         f.add(new JLabel("Origen"));
         f.add(origen);
-        f.add(new JLabel("Probabilidad de evento por tick (0-1)"));
-        f.add(prob);
         f.add(new JLabel("Semilla aleatoria"));
         f.add(sem);
         f.add(new JLabel("Tiempo limite (ticks)"));
-        f.add(lim);
-        f.add(new JLabel("Umbral de estres"));
+        f.add(new JLabel(String.valueOf(params.limite)));
+        f.add(new JLabel("Estrés para reducir la velocidad"));
         f.add(umb);
-        f.add(new JLabel("Capacidad por nodo"));
+        f.add(new JLabel("Capacidad base de cada casilla"));
         f.add(cap);
         f.add(new JLabel("Algoritmo de ruta"));
         f.add(alg);
         if (JOptionPane.showConfirmDialog(this, f, "Configurar parametros de simulacion",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
         try {
-            double pr = Double.parseDouble(prob.getText().trim());
             long se = Long.parseLong(sem.getText().trim());
-            int li = Integer.parseInt(lim.getText().trim());
             double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
-            if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
+            if (!Double.isFinite(um) || um <= 0 || ca < 1) throw new NumberFormatException();
             params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
             params.gas = (evacua.simulacion.TipoGas) gas.getSelectedItem();
             params.nivel = (evacua.simulacion.Intensidad) intensidad.getSelectedItem();
@@ -564,9 +558,7 @@ public class VentanaPrincipal extends JFrame {
                 params.pisoOrigen = params.filaOrigen = params.colOrigen = -1;
                 log("Seleccione el piso y haga clic en la casilla de origen.");
             }
-            params.prob = pr;
             params.semilla = se;
-            params.limite = li;
             params.umbral = um;
             params.capacidad = ca;
             params.astar = alg.getSelectedIndex() == 0;

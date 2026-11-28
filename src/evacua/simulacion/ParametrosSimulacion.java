@@ -7,9 +7,9 @@ public class ParametrosSimulacion {
     public boolean origenManual;
     public int pisoOrigen = -1, filaOrigen = -1, colOrigen = -1;
     public int intensidad = 1;
-    public double prob = 0.03;
+    public double prob = 0;
     public long semilla = 42;
-    public int limite = 300;
+    public int limite = 500;
     public double umbral = 8;
     public int capacidad = 2;
     public boolean astar = true;
