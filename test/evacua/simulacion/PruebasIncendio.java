@@ -51,12 +51,11 @@ public class PruebasIncendio {
             Nodo puerta = incendio.nodos[1], fuente = incendio.nodos[0];
             incendio.nodos[2].fuegoActivo = true;
             incendio.focos++;
-            int limite = nivel == Intensidad.ALTA ? 4 : 6;
+            int limite = 40;
             for (int t = 1; t <= limite; t++) {
                 m.tick = t;
                 incendio.ambiente();
                 verificar(puerta.calorPuerta == t && puerta.danado == (t == limite), "calor de puerta");
-                igual(puerta.humo, 0);
                 if (t < limite) verificar(!puerta.fuegoActivo, "puerta intacta");
             }
             m.tick++;
@@ -64,19 +63,19 @@ public class PruebasIncendio {
             verificar(puerta.humo > 0 && puerta.tipo == TipoNodo.PUERTA, "puerta dañada permeable");
             m.mapa.bloquear(0, 1, true);
             fuente.humo = 100;
-            for (int t = 1; t <= 11; t++) {
+            for (int t = 1; t <= 19; t++) {
                 m.tick++;
                 incendio.ambiente();
-                verificar(fuente.fuegoActivo, "once ticks saturados no extinguen el foco");
+                verificar(fuente.fuegoActivo, "diecinueve ticks saturados no extinguen el foco");
             }
             fuente.humo = 80;
             m.tick++;
             incendio.ambiente();
-            for (int t = 1; t <= 12; t++) {
+            for (int t = 1; t <= 20; t++) {
                 fuente.humo = 100;
                 m.tick++;
                 incendio.ambiente();
-                verificar(fuente.fuegoActivo == (t < 12), "reinicio y extinción al duodécimo tick consecutivo");
+                verificar(fuente.fuegoActivo == (t < 20), "reinicio y extinción al vigésimo tick consecutivo");
             }
             verificar(!fuente.fuegoActivo && !fuente.protegido && fuente.humo >= 99.5, "saturación aislada");
             fuente.humo = 0;
@@ -281,7 +280,7 @@ public class PruebasIncendio {
         verificar(i.nodos[0].fuegoActivo, "un vecino no saturado conserva el foco");
         i.nodos[1].bloqueado = true;
         i.nodos[0].humo = 100;
-        for (int t = 0; t < 12; t++) { m.tick++; i.ambiente(); }
+        for (int t = 0; t < 20; t++) { m.tick++; i.ambiente(); }
         verificar(!i.nodos[0].fuegoActivo && !i.nodos[0].protegido, "barrera excluida de saturación");
     }
 
@@ -342,7 +341,7 @@ public class PruebasIncendio {
     static void finalizacion() {
         MotorSimulacion m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA,0);
         m.mapa.n[0][0].humo = 99.5;
-        for (int t = 0; t < 12; t++) m.paso();
+        for (int t = 0; t < 20; t++) m.paso();
         verificar(m.emergencia().incendio.focos == 0 && !m.terminado && !m.mapa.personas.get(0).evacuada,
                 "extinción sin evacuación no resuelve el incendio");
         m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA, 0);

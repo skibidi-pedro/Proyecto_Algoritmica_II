@@ -22,7 +22,7 @@ final class Incendio {
         ciclo = 4 - i;
         prob = (4 + i) / 10.0;
         dano = 8 - 2 * i;
-        puerta = nivel == Intensidad.ALTA ? 4 : 6;
+        puerta = 40;
         estresFuego = 4 + 2 * i;
         estresVecino = i == 0 ? 2 : 4;
         estresHumo = i == 2 ? 3 : 2;
@@ -74,7 +74,7 @@ final class Incendio {
         }
         for (int i = 0; i < nodos.length; i++) {
             ticksHumoCompleto[i] = nodos[i].fuegoActivo && nodos[i].humo == 100 ? ticksHumoCompleto[i] + 1 : 0;
-            if (ticksHumoCompleto[i] == 12) apagar(i, false);
+            if (ticksHumoCompleto[i] == 20) apagar(i, false);
         }
         if (m.tick % ciclo != 0) return;
         BitSet nuevos = new BitSet(nodos.length);

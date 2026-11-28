@@ -184,7 +184,7 @@ public class VentanaPrincipal extends JFrame {
         velocidad.addChangeListener(e -> timer.setDelay(1100 - velocidad.getValue() * 100));
         timer.setDelay(1100 - velocidad.getValue() * 100);
         p.add(grupo("Simulacion",
-                boton("Configurar parametros de simulacion", "Probabilidad, semilla, tiempo limite, estres, capacidad, algoritmo", e -> configurar()),
+                boton("Configurar parametros de simulacion", "Escenario, semilla, capacidad y algoritmo", e -> configurar()),
                 boton("Iniciar emergencia y simular evacuacion", "Parte desde el escenario actual", e -> iniciar()),
                 chkTiempoReal, velocidad,
                 boton("Detener simulacion", "Pausa la animacion (conserva resultados)", e -> timer.stop()),
@@ -516,10 +516,6 @@ public class VentanaPrincipal extends JFrame {
         f.add(origen);
         f.add(new JLabel("Semilla aleatoria"));
         f.add(sem);
-        f.add(new JLabel("Tiempo limite (ticks)"));
-        f.add(new JLabel(String.valueOf(params.limite)));
-        f.add(new JLabel("Estrés para reducir la velocidad"));
-        f.add(new JLabel(String.valueOf(params.umbral)));
         f.add(new JLabel("Capacidad base de cada casilla"));
         f.add(cap);
         f.add(new JLabel("Algoritmo de ruta"));
