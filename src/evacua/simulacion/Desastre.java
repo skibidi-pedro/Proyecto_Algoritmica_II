@@ -16,6 +16,26 @@ public class Desastre {
     private int hazmatPendientes;
     private final java.util.ArrayDeque<int[]> reemplazos = new java.util.ArrayDeque<>();
     private int llegada = -1;
+    private int tickAlarmaGeneral = -1;
+
+    void alertar(Persona p, int tick, String motivo) {
+        if (p.alertada) return;
+        p.alertada = true;
+        p.hist.add("t=" + tick + " " + motivo);
+        if (!(p instanceof PersonalRescate) && tickAlarmaGeneral < 0) tickAlarmaGeneral = tick + 4;
+    }
+
+    boolean alarmaPendiente(int tick) {
+        return tickAlarmaGeneral > tick;
+    }
+
+    private void emitirAlarma(MotorSimulacion m) {
+        if (m.tick != tickAlarmaGeneral) return;
+        for (Persona p : m.mapa.personas) {
+            if (p.activa()) alertar(p, m.tick, "recibe la alarma general");
+        }
+        m.log.accept("t=" + m.tick + " alarma general del edificio");
+    }
     private boolean confusionAsignada;
     private int pendientes, siguienteAcceso;
 
@@ -100,6 +120,7 @@ public class Desastre {
     }
 
     void paso(MotorSimulacion m) {
+        emitirAlarma(m);
         if (fuga != null) {
             fuga.ambiente();
             fuga.personas();
@@ -178,10 +199,9 @@ public class Desastre {
         if (celda != null) m.alBloquear(celda[0], celda[1]);
     }
 
-    static void alertarDepartamentos(List<Persona> personas, Set<Integer> departamentos, int tick) {
+    void alertarDepartamentos(List<Persona> personas, Set<Integer> departamentos, int tick) {
         for (Persona p : personas) if (p.activa() && !p.alertada && departamentos.contains(p.departamentoInicial)) {
-            p.alertada = true;
-            p.hist.add("t=" + tick + " recibe alerta de su departamento");
+            alertar(p, tick, "recibe alerta de su departamento");
         }
     }
 }

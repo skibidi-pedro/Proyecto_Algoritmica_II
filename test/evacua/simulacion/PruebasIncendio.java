@@ -63,8 +63,21 @@ public class PruebasIncendio {
             incendio.ambiente();
             verificar(puerta.humo > 0 && puerta.tipo == TipoNodo.PUERTA, "puerta dañada permeable");
             m.mapa.bloquear(0, 1, true);
-            fuente.humo = 99.5;
+            fuente.humo = 100;
+            for (int t = 1; t <= 11; t++) {
+                m.tick++;
+                incendio.ambiente();
+                verificar(fuente.fuegoActivo, "once ticks saturados no extinguen el foco");
+            }
+            fuente.humo = 80;
+            m.tick++;
             incendio.ambiente();
+            for (int t = 1; t <= 12; t++) {
+                fuente.humo = 100;
+                m.tick++;
+                incendio.ambiente();
+                verificar(fuente.fuegoActivo == (t < 12), "reinicio y extinción al duodécimo tick consecutivo");
+            }
             verificar(!fuente.fuegoActivo && !fuente.protegido && fuente.humo >= 99.5, "saturación aislada");
             fuente.humo = 0;
             puerta.fuegoActivo = true;
@@ -268,8 +281,8 @@ public class PruebasIncendio {
         i.ambiente();
         verificar(i.nodos[0].fuegoActivo, "un vecino no saturado conserva el foco");
         i.nodos[1].bloqueado = true;
-        i.nodos[0].humo = 99.5;
-        i.ambiente();
+        i.nodos[0].humo = 100;
+        for (int t = 0; t < 12; t++) { m.tick++; i.ambiente(); }
         verificar(!i.nodos[0].fuegoActivo && !i.nodos[0].protegido, "barrera excluida de saturación");
     }
 
@@ -294,12 +307,43 @@ public class PruebasIncendio {
         verificar(b.evacuada && !m.emergencia().haySolicitudes(), "evacuación normal sin reemplazo");
     }
 
+    static void alarmaGeneral() {
+        for (TipoDesastre tipo : new TipoDesastre[]{TipoDesastre.INCENDIO, TipoDesastre.FUGA_DE_GAS}) {
+            ParametrosSimulacion p = new ParametrosSimulacion();
+            p.desastre = tipo;
+            p.gas = TipoGas.GAS_NATURAL;
+            p.origenManual = true;
+            p.pisoOrigen = p.filaOrigen = p.colOrigen = 0;
+            MotorSimulacion m = new MotorSimulacion(GestorEscenarios.deTexto(
+                    "HS.HS\n#PERSONAS\n0 0 ADULTO SANO\n0 3 ADULTO SANO"), p, s -> {});
+            m.iniciar();
+            Persona primero = m.mapa.personas.get(0), lejos = m.mapa.personas.get(1);
+            while (!primero.alertada && m.tick < 10) m.paso();
+            verificar(primero.alertada && !lejos.alertada, "primera detección local " + tipo);
+            int aviso = m.tick;
+            for (int t = 1; t <= 4; t++) {
+                m.paso();
+                verificar(m.tick == aviso + t && lejos.alertada == (t == 4), "alarma en t+4 " + tipo);
+            }
+        }
+    }
+
     static void finalizacion() {
         MotorSimulacion m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA,0);
         m.mapa.n[0][0].humo = 99.5;
-        m.mapa.n[0][2].humo = 25; // Humo residual tras la extinción previa al primer aviso.
-        m.paso();
-        verificar(m.terminado && m.emergencia().tickLlegada() < 0 && !m.mapa.personas.get(0).evacuada, "fin sin detección");
+        for (int t = 0; t < 12; t++) m.paso();
+        verificar(m.emergencia().incendio.focos == 0 && !m.terminado && !m.mapa.personas.get(0).evacuada,
+                "extinción sin evacuación no resuelve el incendio");
+        m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA, 0);
+        m.mapa.personas.get(0).evacuada = true;
+        verificar(m.paso() && !m.terminado, "la evacuación completa espera el último foco");
+        m.emergencia().incendio.apagar(0, true);
+        verificar(!m.paso() && m.terminado, "evacuación completa e incendio extinguido");
+        m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA, 0);
+        m.registrarFallecimiento(m.mapa.personas.get(0), "prueba");
+        m.emergencia().incendio.apagar(0, true);
+        verificar(!m.paso() && !m.terminado && m.resultadoIncendio.contains("fallecidos"),
+                "fallecimiento distinto de evacuación");
         m = motor("HPS\n#PERSONAS\n0 1 ADULTO SANO",Intensidad.BAJA,0);
         m.params.limite = 1;
         for (int t=0; t<150 && !m.terminado; t++) m.paso();
@@ -308,7 +352,7 @@ public class PruebasIncendio {
     }
 
     public static void main(String[] args) {
-        propagacion(); puertasYExtincion(); humo(); personasYAlerta(); rutas(); brigada(); refuerzos(); prioridadesYReservas(); puertaInterrumpidaYSaturacion(); cancelacionYAtasco(); finalizacion();
+        propagacion(); puertasYExtincion(); humo(); personasYAlerta(); rutas(); brigada(); refuerzos(); prioridadesYReservas(); puertaInterrumpidaYSaturacion(); cancelacionYAtasco(); alarmaGeneral(); finalizacion();
         System.out.println("Incendio: propagación, puertas, humo, personas, alarma, rutas, brigada, extinción, refuerzos y finalización OK");
     }
 }

@@ -562,7 +562,7 @@ public class MotorSimulacion {
         if (incendio()) {
             resultadoIncendio = desastre.incendio.resultado(todas);
             if (!resultadoIncendio.isEmpty()) {
-                terminado = !desastre.incendio.sinProgreso;
+                terminado = evacuadas() == mapa.personas.size() && desastre.incendio.focos == 0;
                 log.accept("t=" + tick + " " + resultadoIncendio);
                 if (alTerminar != null) alTerminar.run();
                 return false;

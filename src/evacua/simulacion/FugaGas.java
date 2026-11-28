@@ -118,12 +118,11 @@ public final class FugaGas {
                     && TipoGas.alcanza(t,tipo.confusion) ? 1 : 0;
             if (!TipoGas.alcanza(t,tipo.aviso)) continue;
             p.aumentarEstres(tipo.estresBase + m.params.nivel.ordinal());
-            if (!p.alertada) p.hist.add("t=" + m.tick + " detecta la fuga");
-            p.alertada = true;
+            m.emergencia().alertar(p, m.tick, "detecta la fuga");
             if (p.departamentoInicial > 0) avisos.add(p.departamentoInicial);
             m.emergencia().solicitarRefuerzos(m);
         }
-        Desastre.alertarDepartamentos(m.mapa.personas, avisos, m.tick);
+        m.emergencia().alertarDepartamentos(m.mapa.personas, avisos, m.tick);
         for (Persona p : m.mapa.personas) avisarDesde(p);
     }
 
@@ -133,11 +132,10 @@ public final class FugaGas {
         Set<Integer> avisos = new HashSet<>();
         if (dep > 0) avisos.add(dep);
         for (Persona p : m.mapa.personas) if (p.activa() && !p.alertada && p.f == r.f && p.c == r.c) {
-            p.alertada = true;
-            p.hist.add("t=" + m.tick + " aviso directo de P" + r.id);
+            m.emergencia().alertar(p, m.tick, "aviso directo de P" + r.id);
             if (p.departamentoInicial > 0) avisos.add(p.departamentoInicial);
         }
-        if (!avisos.isEmpty()) Desastre.alertarDepartamentos(m.mapa.personas, avisos, m.tick);
+        if (!avisos.isEmpty()) m.emergencia().alertarDepartamentos(m.mapa.personas, avisos, m.tick);
     }
 
     List<int[]> metasAviso() {
@@ -196,6 +194,7 @@ public final class FugaGas {
 
     String resultado(boolean todosFuera) {
         if (reparada && todosFuera) return "Fuente reparada; todos los supervivientes evacuaron.";
+        if (m.emergencia().alarmaPendiente(m.tick)) return "";
         if (m.emergencia().tickLlegada() < 0 && !deteccionPosible()) return "Sin progreso: nadie puede detectar la fuga.";
         if (cambio || m.emergencia().restantes(m.tick) > 0 || m.emergencia().reemplazoEnCamino(m.tick)) {
             situacionAnterior = null;

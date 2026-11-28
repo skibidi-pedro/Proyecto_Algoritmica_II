@@ -11,8 +11,9 @@ final class Incendio {
     private final double prob;
     final Nodo[] nodos;
     private final double[] humo;
+    private final int[] ticksHumoCompleto;
     int focos;
-    boolean cambioAmbiental, sinProgreso;
+    boolean cambioAmbiental;
     private String ultimaSituacion;
 
     Incendio(MotorSimulacion m, int origen, Intensidad nivel) {
@@ -27,6 +28,7 @@ final class Incendio {
         estresHumo = i == 2 ? 3 : 2;
         nodos = new Nodo[m.grafo.total()];
         humo = new double[nodos.length];
+        ticksHumoCompleto = new int[nodos.length];
         for (int id = 0; id < nodos.length; id++) {
             Nodo n = nodos[id] = m.mapa.n[id / m.mapa.cols][id % m.mapa.cols];
             n.fuegoActivo = n.protegido = false;
@@ -69,7 +71,10 @@ final class Incendio {
                 if (n.calorPuerta >= puerta) n.danado = true;
             }
         }
-        for (int i = 0; i < nodos.length; i++) if (nodos[i].fuegoActivo && saturado(i)) apagar(i, false);
+        for (int i = 0; i < nodos.length; i++) {
+            ticksHumoCompleto[i] = nodos[i].fuegoActivo && nodos[i].humo == 100 ? ticksHumoCompleto[i] + 1 : 0;
+            if (ticksHumoCompleto[i] == 12) apagar(i, false);
+        }
         if (m.tick % ciclo != 0) return;
         BitSet nuevos = new BitSet(nodos.length);
         for (int i = 0; i < nodos.length; i++) {
@@ -84,18 +89,19 @@ final class Incendio {
     }
 
     String resultado(boolean todosFuera) {
-        sinProgreso = false;
+        if (todosFuera && focos == 0) {
+            if (m.evacuadas() == m.mapa.personas.size()) return "Todos evacuaron y el incendio está extinguido.";
+            return "Incendio extinguido con fallecidos. Evacuaron todos los supervivientes.";
+        }
+        if (m.emergencia().alarmaPendiente(m.tick)) return "";
         if (m.emergencia().haySolicitudes() && m.emergencia().restantes(m.tick) == 0 && accesosOcupadosPermanentemente()) {
             boolean enMarcha = m.mapa.personas.stream().anyMatch(p -> p.activa()
                     && (!p.ruta.isEmpty() || p.asistida || p.ticksFuego > 0 || p.ticksHumo > 0 || p instanceof Bombero));
             if (!enMarcha) {
-                sinProgreso = true;
                 return "Sin progreso: ningún acceso tiene capacidad física para los refuerzos.";
             }
         }
         if (focos == 0) {
-            if (todosFuera) return "Incendio extinguido; todos los supervivientes evacuaron.";
-            if (m.emergencia().tickLlegada() < 0) return "Incendio extinguido antes de su detección.";
             if (m.emergencia().haySolicitudes() || cambioAmbiental) {
                 ultimaSituacion = null;
                 return "";
@@ -116,7 +122,6 @@ final class Incendio {
             boolean inmovil = actual.equals(ultimaSituacion);
             ultimaSituacion = actual;
             if (!inmovil) return "";
-            sinProgreso = true;
             return "Sin progreso: quedan supervivientes sin evacuación posible.";
         }
         // Una salida en llamas siempre queda por debajo de saturación después de ventilar.
@@ -126,7 +131,6 @@ final class Incendio {
                     && (m.emergencia().tickLlegada() >= 0 || !avisoPosible())) {
                 for (Persona p : m.mapa.personas) if (p.activa() && (p.asistida || !p.ruta.isEmpty()
                         || p.ticksHumo > 0 || p.ticksFuego > 0)) return "";
-                sinProgreso = true;
                 return "Sin progreso: fuego ventilado sin intervención posible.";
             }
         }
@@ -164,6 +168,7 @@ final class Incendio {
     void apagar(int id, boolean profesional) {
         Nodo n = nodos[id];
         n.fuegoActivo = false;
+        ticksHumoCompleto[id] = 0;
         n.ticksArdiendo = n.extincion = 0;
         n.protegido = profesional;
         focos--;
@@ -177,11 +182,8 @@ final class Incendio {
             int id = p.f * m.mapa.cols + p.c;
             Nodo n = nodos[id];
             boolean cerca = fuegoVecino(id, true);
-            if ((focos > 0 || m.emergencia().tickLlegada() >= 0) && (n.fuegoActivo || cerca || n.humo > 10)) {
-                if (!p.alertada) {
-                    p.alertada = true;
-                    p.hist.add("t=" + m.tick + " detecta el incendio");
-                }
+            if (n.fuegoActivo || cerca || n.humo > 10) {
+                m.emergencia().alertar(p, m.tick, "detecta el incendio");
                 if (p.departamentoInicial > 0) departamentos.add(p.departamentoInicial);
                 m.emergencia().solicitarRefuerzos(m);
             }
@@ -196,7 +198,7 @@ final class Incendio {
                 p.hist.add("t=" + m.tick + " HERIDO por exposición");
             }
         }
-        Desastre.alertarDepartamentos(m.mapa.personas, departamentos, m.tick);
+        m.emergencia().alertarDepartamentos(m.mapa.personas, departamentos, m.tick);
     }
 
 }
