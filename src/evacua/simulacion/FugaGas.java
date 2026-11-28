@@ -14,8 +14,8 @@ public final class FugaGas {
     private final double[] gas;
     private final BitSet yaLlenados = new BitSet();
     private boolean reparada;
-    private int reparacion;
-    private int tickExposicion = -1, tickReparacion = -1;
+    private final Reparacion reparacion = new Reparacion();
+    private int tickExposicion = -1;
     private double pendiente, generado, ventilado;
     private boolean cambio;
     private String situacionAnterior;
@@ -34,7 +34,7 @@ public final class FugaGas {
     }
 
     public boolean reparada() { return reparada; }
-    public int progreso() { return reparacion; }
+    public int progreso() { return reparacion.progreso(); }
     public double pendiente() { return pendiente; }
     public double generado() { return generado; }
     public double ventilado() { return ventilado; }
@@ -175,9 +175,7 @@ public final class FugaGas {
 
     boolean reparar(Persona p) {
         if (!encargado(p) || p.f * m.mapa.cols + p.c != origen) return false;
-        if (tickReparacion == m.tick) return true;
-        tickReparacion = m.tick;
-        if (++reparacion == 2) {
+        if (reparacion.avanzar(m.tick)) {
             reparada = true;
             m.intervenciones.remove(origen);
             m.log.accept("t=" + m.tick + " fuente reparada por P" + p.id);
@@ -201,7 +199,7 @@ public final class FugaGas {
             return "";
         }
         // Con concentraciones estacionarias, comprobar también acciones, síntomas en curso y arribos.
-        StringBuilder s = new StringBuilder().append(reparacion).append('/').append(m.emergencia().refuerzosPendientes());
+        StringBuilder s = new StringBuilder().append(reparacion.progreso()).append('/').append(m.emergencia().refuerzosPendientes());
         for (Persona p : m.mapa.personas) if (p.activa()) {
             s.append('|').append(p.id).append('/').append(p.f).append('/').append(p.c).append('/')
                     .append(p.estres).append('/').append(p.alertada).append('/').append(p.salud).append('/')

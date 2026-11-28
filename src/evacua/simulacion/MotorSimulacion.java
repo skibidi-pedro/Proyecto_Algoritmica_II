@@ -93,6 +93,7 @@ public class MotorSimulacion {
     }
 
     public void iniciar() {
+        reparaciones.clear();
         intervenciones.clear();
         equipos.clear();
         grafo = Grafo.desde(mapa);
@@ -308,15 +309,23 @@ public class MotorSimulacion {
         for (Persona p : mapa.personas) asignarRuta(p);
     }
 
-    private void repararBloqueo(Persona p) {
-        if (p instanceof Bombero || p.tipo != TipoPersona.RESCATE || ((PersonalRescate) p).retirado || equipos.containsKey(p) || p.salud == EstadoSalud.INCAPACITADO) return;
+    private final java.util.Map<Integer, Reparacion> reparaciones = new java.util.HashMap<>();
+
+    private boolean repararBloqueo(Persona p) {
+        if (params.desastre != TipoDesastre.TERREMOTO || !(p instanceof PersonalRescate)
+                || ((PersonalRescate)p).retirado || equipos.containsKey(p) || p.salud == EstadoSalud.INCAPACITADO) return false;
         for (Grafo.Arista a : grafo.ady[p.f * mapa.cols + p.c]) {
             Nodo n = mapa.n[a.destino / mapa.cols][a.destino % mapa.cols];
-            if (a.bloqueada() || !n.bloqueado || !n.bloqueoReparable || pasoEspecial(p) && n.accesoRescate()) continue;
+            if (a.bloqueada() || !n.bloqueado || n.tipo == TipoNodo.VACIO) continue;
+            Reparacion trabajo = reparaciones.computeIfAbsent(a.destino, id -> new Reparacion());
+            if (trabajo.trabajadoEn(tick)) continue;
+            if (!trabajo.avanzar(tick)) return true;
+            reparaciones.remove(a.destino);
             mapa.bloquear(a.destino / mapa.cols, a.destino % mapa.cols, false);
             p.hist.add("t=" + tick + " repara el bloqueo en " + mapa.idDe(a.destino / mapa.cols, a.destino % mapa.cols));
-            break;
+            return true;
         }
+        return false;
     }
 
     public void generarEvento() {
@@ -324,6 +333,7 @@ public class MotorSimulacion {
     }
 
     public void alBloquear(int f, int c) {
+        reparaciones.remove(f * mapa.cols + c);
         recalcularTodas();
     }
 
@@ -457,7 +467,10 @@ public class MotorSimulacion {
                 estresGrupo(p, ambiental);
                 continue;
             }
-            repararBloqueo(p);
+            if (repararBloqueo(p)) {
+                p.aumentarEstres(ambiental);
+                continue;
+            }
             asignarRuta(p);
             chequearRescate(p);
             if (incendio() && p instanceof Bombero && brigada.extinguir((Bombero)p) || fuga() && desastre.fuga.reparar(p)) {

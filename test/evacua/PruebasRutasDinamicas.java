@@ -74,7 +74,16 @@ public class PruebasRutasDinamicas {
 
     private static void rescate(boolean astar) {
         MotorSimulacion m = motor("HpS\n#CONDICIONES\n1:0:1 DANADO PELIGROSO REPARABLE\n#PERSONAS\n0 0 RESCATE SANO", astar);
+        m.paso();
+        m.paso();
+        exigir(m.mapa.n[0][1].bloqueado, "El simulacro no repara bloqueos");
+        m.params.desastre = TipoDesastre.TERREMOTO;
+        m.iniciar();
+        m.tick = m.emergencia().ticksTemblorRestantes(0);
         Nodo n = m.mapa.n[0][1];
+        n.bloqueoReparable = false;
+        m.paso();
+        exigir(n.bloqueado, "Un tick de reparación no basta");
         m.paso();
         exigir(!n.bloqueado && n.danado && n.peligroso && n.capacidadEfectiva(2) == 1, "Repara solo el bloqueo");
         m = motor("HpS\n#PERSONAS\n0 0 RESCATE SANO", astar);
