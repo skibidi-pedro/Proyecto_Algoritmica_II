@@ -1,12 +1,9 @@
 package evacua.reportes;
 
 import evacua.edificio.Edificio;
-import evacua.persistencia.BaseDatos;
 import evacua.simulacion.MotorSimulacion;
 import evacua.simulacion.ParametrosSimulacion;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -20,9 +17,6 @@ public final class ComparadorEscenarios {
         public int personas, evacuadas, ticks;
         public double tiempoPromedio, estresPromedio;
 
-        public String aCsv() {
-            return String.format(Locale.ROOT, "%s,%s,%d,%d,%d,%d,%.2f,%.2f", nombre, algoritmo, semilla, personas, evacuadas, ticks, tiempoPromedio, estresPromedio);
-        }
     }
 
     public static Fila simular(String nombre, Edificio e, ParametrosSimulacion params) {
@@ -40,16 +34,6 @@ public final class ComparadorEscenarios {
         f.tiempoPromedio = m.promedioEvac();
         f.estresPromedio = m.promedioEstres();
         return f;
-    }
-
-    public static List<Fila> compararGuardados(BaseDatos bd, List<String> nombres, ParametrosSimulacion params) throws IOException {
-        List<Fila> r = new ArrayList<>();
-        for (String n : nombres) {
-            Fila f = simular(n, bd.cargar(n), params);
-            bd.registrarResultado(f.aCsv());
-            r.add(f);
-        }
-        return r;
     }
 
     public static String aTexto(List<Fila> filas) {
