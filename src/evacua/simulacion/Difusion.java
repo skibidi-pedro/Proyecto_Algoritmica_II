@@ -6,6 +6,16 @@ import java.util.function.IntPredicate;
 /** Una pasada calcula demanda por extremo; la segunda aplica flujos proporcionales simultáneos. */
 final class Difusion {
     static void aplicar(Grafo grafo, double[] concentracion, IntPredicate permeable) {
+        aplicar(grafo, concentracion, permeable, (desde, hacia) -> true);
+    }
+
+    interface Paso { boolean permite(int desde, int hacia); }
+
+    static double ventilar(evacua.edificio.Nodo n, double cantidad) {
+        return n.tipo == evacua.edificio.TipoNodo.SALIDA && !n.bloqueado ? Math.max(0, cantidad - 5) : cantidad;
+    }
+
+    static void aplicar(Grafo grafo, double[] concentracion, IntPredicate permeable, Paso paso) {
         int n = concentracion.length;
         double[] entrada = new double[n], salida = new double[n], cambio = new double[n];
         for (int fase = 0; fase < 2; fase++) {
@@ -16,6 +26,7 @@ final class Difusion {
                     if (j <= i || a.bloqueada() || !permeable.test(j) || concentracion[i] == concentracion[j]) continue;
                     int desde = concentracion[i] > concentracion[j] ? i : j;
                     int hacia = desde == i ? j : i;
+                    if (!paso.permite(desde, hacia)) continue;
                     double flujo = (concentracion[desde] - concentracion[hacia]) * 0.25;
                     if (fase == 0) {
                         salida[desde] += flujo;

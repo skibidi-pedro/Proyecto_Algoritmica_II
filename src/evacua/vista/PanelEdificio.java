@@ -1,6 +1,7 @@
 package evacua.vista;
 
 import evacua.edificio.Edificio;
+import evacua.simulacion.TipoGas;
 import evacua.edificio.Nodo;
 import evacua.edificio.TipoNodo;
 import evacua.personas.EstadoSalud;
@@ -48,18 +49,48 @@ public class PanelEdificio extends JPanel {
         addMouseMotionListener(ma);
     }
 
+    private boolean muestraGas() {
+        return v.motor != null && v.motor.params.desastre == evacua.simulacion.TipoDesastre.FUGA_DE_GAS;
+    }
+
+    static Color colorGas(TipoGas gas, double saturacion) {
+        int rgb;
+        switch (gas) {
+            case GAS_NATURAL: rgb = 0xf5c219; break;
+            case DIOXIDO_CARBONO: rgb = 0x5286aa; break;
+            case TETRAFLUOROETANO: rgb = 0x299953; break;
+            default: rgb = 0x896eaa;
+        }
+        return new Color(rgb | ((int)(saturacion * 1.9) << 24), true);
+    }
+
+    static void dibujarFuente(Graphics g, int x, int y, boolean reparada) {
+        g.setColor(reparada ? new Color(0x15803d) : new Color(0xef7815));
+        g.fillRect(x + CELL - 13, y + 3, 10, 10);
+        g.setColor(Color.BLACK);
+        g.drawRect(x + CELL - 13, y + 3, 10, 10);
+    }
+
     @Override public String getToolTipText(MouseEvent e) {
-        if (v.motor == null || v.motor.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO) return null;
+        if (v.motor == null || !muestraGas() && v.motor.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO) return null;
         Edificio m = v.vista();
         int f = v.pisoActual * m.filasPorPiso + e.getY() / CELL, c = e.getX() / CELL;
         if (!m.dentro(f,c)) return null;
         Nodo n = m.n[f][c];
         StringBuilder info = new StringBuilder(String.format("<html>%s · Humo %.1f%% · Fuego %s · Extinción %d/2",
                 n.tipo.nombre, n.humo, n.fuegoActivo ? "activo" : "inactivo", n.extincion));
+        if (muestraGas()) {
+            info = new StringBuilder(String.format("<html>%s · %s · Saturación %.1f%%", n.tipo.nombre, v.motor.params.gas, n.concentracionGas()));
+            if (v.motor.emergencia().origen() == f * m.cols + c)
+                info.append(v.motor.emergencia().fuga.reparada() ? " · Fuente reparada" : " · Fuente activa")
+                        .append(" · reparación ").append(v.motor.emergencia().fuga.progreso()).append("/2");
+        }
         for (Persona p : m.personas) if (!p.evacuada && p.f == f && p.c == c) {
-            info.append(String.format("<br>%s · %s · estrés %.1f/%.0f · exposición fuego/humo %d/%d",
+            info.append(String.format("<br>%s · %s · estrés %.1f/%.0f ",
                     p.etiqueta(), p.tickMuerte >= 0 ? "Fallecida" : p.alertada ? "Alertada" : "Sin aviso",
-                    p.estres, p.limiteEstres(), p.ticksFuego, p.ticksHumo));
+                    p.estres, p.limiteEstres()));
+            if (muestraGas()) info.append(" · ticks >10/≥50/≥75/≥95: ").append(java.util.Arrays.toString(p.exposicionGas));
+            else info.append(" · exposición fuego/humo ").append(p.ticksFuego).append("/").append(p.ticksHumo);
         }
         return info.append("</html>").toString();
     }
@@ -79,7 +110,7 @@ public class PanelEdificio extends JPanel {
         if (!m.dentro(f, c)) return;
         Nodo nd = m.n[f][c];
         if (v.seleccionandoOrigen) {
-            if (click && nd.tipo != TipoNodo.VACIO && (v.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO || nd.combustible())) {
+            if (click && nd.tipo != TipoNodo.VACIO && (v.params.desastre != evacua.simulacion.TipoDesastre.FUGA_DE_GAS || !nd.bloqueado) && (v.params.desastre != evacua.simulacion.TipoDesastre.INCENDIO || nd.combustible())) {
                 v.params.pisoOrigen = piso;
                 v.params.filaOrigen = f % m.filasPorPiso;
                 v.params.colOrigen = c;
@@ -179,6 +210,10 @@ public class PanelEdificio extends JPanel {
                     g.setColor(new Color(1f, 0.1f, 0.0f, a));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 }
+                if (muestraGas() && nd.concentracionGas() > 0) {
+                    g.setColor(colorGas(v.motor.params.gas, nd.concentracionGas()));
+                    g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
+                }
                 if (nd.humo > 0) {
                     g.setColor(new Color(55, 60, 67, (int)(1.5 * nd.humo)));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
@@ -199,6 +234,9 @@ public class PanelEdificio extends JPanel {
                     g.drawLine(x + 8, y + 8, x + CELL - 8, y + CELL - 8);
                     g.drawLine(x + CELL - 8, y + 8, x + 8, y + CELL - 8);
                     g.setStroke(new BasicStroke(1));
+                }
+                if (muestraGas() && v.motor.emergencia().origen() == (base + i) * m.cols + j) {
+                    dibujarFuente(g, x, y, v.motor.emergencia().fuga.reparada());
                 }
                 if (nd.fuegoActivo) {
                     g.setColor(new Color(190, 45, 0));
@@ -258,8 +296,8 @@ public class PanelEdificio extends JPanel {
             g.drawOval(cx - d / 2, cy - d / 2, d, d);
             g.setStroke(new BasicStroke(1));
             g.setColor(Color.WHITE);
-            g.drawString(p instanceof evacua.personas.Bombero ? "B" : String.valueOf(p.tipo.letra), cx - 3, cy + 4);
-            if (v.motor != null && v.motor.params.desastre == evacua.simulacion.TipoDesastre.INCENDIO) {
+            g.drawString(p instanceof evacua.personas.Bombero ? "B" : p instanceof evacua.personas.Hazmat ? "Z" : String.valueOf(p.tipo.letra), cx - 3, cy + 4);
+            if (muestraGas() || v.motor != null && v.motor.params.desastre == evacua.simulacion.TipoDesastre.INCENDIO) {
                 g.setColor(Color.BLACK);
                 g.drawString(p.tickMuerte >= 0 ? "×" : p.alertada ? "!" : "·", cx - 11, cy - 5);
             }

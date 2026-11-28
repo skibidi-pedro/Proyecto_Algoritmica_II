@@ -2,6 +2,7 @@ package evacua.simulacion;
 
 public class ParametrosSimulacion {
     public TipoDesastre desastre = TipoDesastre.NINGUNO;
+    public TipoGas gas = TipoGas.MONOXIDO_CARBONO;
     public Intensidad nivel = Intensidad.BAJA;
     public boolean origenManual;
     public int pisoOrigen = -1, filaOrigen = -1, colOrigen = -1;
@@ -17,6 +18,7 @@ public class ParametrosSimulacion {
         ParametrosSimulacion p = new ParametrosSimulacion();
         p.desastre = desastre;
         p.nivel = nivel;
+        p.gas = gas;
         p.origenManual = origenManual;
         p.pisoOrigen = pisoOrigen;
         p.filaOrigen = filaOrigen;

@@ -10,6 +10,7 @@ import evacua.personas.Persona;
 import evacua.personas.PersonalRescate;
 import evacua.personas.Adulto;
 import evacua.personas.Bombero;
+import evacua.personas.Hazmat;
 import evacua.personas.TipoPersona;
 import evacua.edificio.Grafo;
 import evacua.rutas.AlgoritmoRuta;
@@ -28,10 +29,27 @@ public class MotorSimulacion {
     public final java.util.function.Consumer<String> log;
     public Grafo grafo;
     private Desastre desastre;
+    // Una intervención sobre el entorno tiene un único responsable por nodo.
+    final java.util.Map<Integer,PersonalRescate> intervenciones = new java.util.HashMap<>();
     private final Brigada brigada = new Brigada(this);
     public String resultadoIncendio = "";
 
+    private String resultadoGas = "";
+    public String resultadoEscenario() { return fuga() ? resultadoGas : resultadoIncendio; }
+    private boolean fuga() { return params.desastre == TipoDesastre.FUGA_DE_GAS; }
+    private boolean alertaIndividual() { return incendio() || fuga(); }
+    private boolean percibeGas(Persona p) {
+        return fuga() && !(p instanceof Hazmat) && (p.alertada || params.gas == TipoGas.GAS_NATURAL);
+    }
+    private final java.util.Set<Persona> enAviso = new java.util.HashSet<>();
+    private boolean enMision(Persona p) {
+        return conFoco(p) || fuga() && (desastre.fuga.encargado(p) || enAviso.contains(p));
+    }
     private boolean incendio() { return params.desastre == TipoDesastre.INCENDIO; }
+    private AlgoritmoRuta.Ambiente ambienteRuta(Persona p) {
+        if (percibeGas(p)) return AlgoritmoRuta.Ambiente.GAS;
+        return evitaFuego(p) ? AlgoritmoRuta.Ambiente.HUMO : AlgoritmoRuta.Ambiente.NORMAL;
+    }
     private boolean evitaFuego(Persona p) { return incendio() && !(p instanceof Bombero); }
     private boolean conFoco(Persona p) { return p instanceof Bombero && ((Bombero)p).foco >= 0; }
     private final java.util.Map<Persona, EquipoCarga> equipos = new java.util.HashMap<>();
@@ -75,13 +93,15 @@ public class MotorSimulacion {
     }
 
     public void iniciar() {
+        intervenciones.clear();
         equipos.clear();
         grafo = Grafo.desde(mapa);
         rnd.setSeed(params.semilla);
         desastre = new Desastre(this);
         tick = 0;
         terminado = false;
-        resultadoIncendio = "";
+        enAviso.clear();
+        resultadoIncendio = resultadoGas = "";
         salidas = new Cola<>();
         for (Persona p : mapa.personas) {
             if (p instanceof PersonalRescate) {
@@ -89,7 +109,8 @@ public class MotorSimulacion {
                 ((PersonalRescate) p).transportando = false;
             }
             p.salud = p.saludInicial;
-            p.alertada = p instanceof Bombero;
+            p.alertada = p instanceof Bombero || p instanceof Hazmat;
+            java.util.Arrays.fill(p.exposicionGas, 0);
             p.ticksHumo = 0;
             p.evacuada = false;
             p.tickMuerte = -1;
@@ -123,25 +144,42 @@ public class MotorSimulacion {
     public void asignarRuta(Persona p) {
         EquipoCarga equipo = equipos.get(p);
         if (!p.activa() || equipo != null && equipo.lider() != p) return;
-        if (incendio() && !p.alertada) { p.ruta.clear(); return; }
+        if (alertaIndividual() && !p.alertada) { p.ruta.clear(); return; }
         registrarBloqueos(p);
         if (p.salud == EstadoSalud.INCAPACITADO && !p.asistida && !p.ayudaFamiliar) {
             p.objetivo = null;
             p.ruta.clear();
             return;
         }
-        if (p instanceof Bombero) {
+        enAviso.remove(p);
+        if (fuga() && desastre.fuga.encargado(p)) {
+            p.objetivo = null;
+        } else if (p instanceof Bombero && !fuga()) {
             Bombero b = (Bombero)p;
             if (b.objetivo != null && (!b.objetivo.activa() || b.objetivo.asistida)) b.objetivo = null;
             if (b.retirado || b.transportando) { b.objetivo = null; b.foco = -1; }
         } else {
             p.objetivo = p instanceof PersonalRescate
-                    ? ((PersonalRescate)p).elegirObjetivo(mapa.personas, this::rescateAlcanzable)
+                    ? ((PersonalRescate)p).elegirObjetivo(mapa.personas, this::rescateAlcanzable, fuga())
                     : p.elegirObjetivo(mapa.personas);
         }
         List<int[]> metas = conFoco(p) ? brigada.posiciones(((Bombero)p).foco) : mapa.salidas(pasoEspecial(p));
+        if (fuga() && p instanceof PersonalRescate) {
+            PersonalRescate r = (PersonalRescate)p;
+            if (desastre.fuga.encargado(r)) metas = desastre.fuga.fuente();
+            else if (!r.retirado && !r.transportando && r.objetivo == null) {
+                List<int[]> avisos = desastre.fuga.metasAviso();
+                // La ocupación puede cambiar dentro del tick. Un aviso alcanzable
+                // sigue pendiente aunque el destinatario esté en una casilla llena.
+                if (!avisos.isEmpty() && dijkstra.buscar(mapa, grafo, r.f, r.c, avisos, null,
+                        (a,b) -> false, true, pasoEspecial(r), ambienteRuta(r)).ruta != null) {
+                    metas = avisos;
+                    enAviso.add(r);
+                }
+            }
+        }
         // Una ruta aún válida que alcanza la cota inferior sigue siendo óptima, incluso si cambia el humo.
-        if (incendio() && p.objetivo == null && !p.ruta.isEmpty() && rutaEquivalente(p, metas,
+        if (alertaIndividual() && p.objetivo == null && !p.ruta.isEmpty() && rutaEquivalente(p, metas,
                 evacua.rutas.Heuristica.aTiempo(mapa, p.f, p.c, metas, grafo.factorTiempo))) return;
         ResultadoRuta r = null;
         if (p.objetivo != null) {
@@ -150,7 +188,7 @@ public class MotorSimulacion {
             if (r.ruta != null) metas = rescate;
             else if (p.tipo == TipoPersona.ADULTO) {
                 p.objetivo.ayudaFamiliar = false;
-                if (params.desastre != TipoDesastre.TERREMOTO && !incendio()) {
+                if (params.desastre != TipoDesastre.TERREMOTO && !alertaIndividual()) {
                     p.ruta.clear();
                     return;
                 }
@@ -162,9 +200,9 @@ public class MotorSimulacion {
             }
         }
         if (p.objetivo == null) r = buscar(p, metas);
-        if ((params.desastre == TipoDesastre.TERREMOTO || incendio()) && !(p instanceof PersonalRescate)
+        if ((params.desastre == TipoDesastre.TERREMOTO || alertaIndividual()) && !(p instanceof PersonalRescate)
                 && (r.ruta == null || r.ruta.isEmpty() && p.objetivo != null)
-                && dijkstra.buscar(mapa, grafo, p.f, p.c, mapa.salidas(), null, (a,b) -> false, false, false, evitaFuego(p)).ruta == null) {
+                && dijkstra.buscar(mapa, grafo, p.f, p.c, mapa.salidas(), null, (a,b) -> false, false, false, ambienteRuta(p)).ruta == null) {
             r = buscarRefugio(p);
             metas = r.ruta == null || r.ruta.isEmpty() ? java.util.Collections.singletonList(new int[]{p.f, p.c})
                     : java.util.Collections.singletonList(r.ruta.get(r.ruta.size() - 1));
@@ -186,6 +224,7 @@ public class MotorSimulacion {
             if (!mapa.caminable(f, c) || incendio() && n.fuegoActivo) continue;
             int riesgo = (n.danado ? 1 : 0) + (n.peligroso ? 2 : 0);
             if (incendio()) riesgo += (int)(n.costoHumo() * 8) + (desastre.incendio.fuegoVecino(f * mapa.cols + c, true) ? 4 : 0);
+            if (percibeGas(p)) riesgo += (int)(8 * Nodo.costoConcentracion(n.concentracionGas()));
             zonas.computeIfAbsent(riesgo, k -> new ArrayList<>()).add(new int[]{f,c});
         }
         for (List<int[]> metas : zonas.values()) {
@@ -196,7 +235,7 @@ public class MotorSimulacion {
     }
 
     private boolean pasoEspecial(Persona p) {
-        return (params.desastre == TipoDesastre.TERREMOTO || incendio()) && p instanceof PersonalRescate;
+        return (params.desastre == TipoDesastre.TERREMOTO || alertaIndividual()) && p instanceof PersonalRescate;
     }
 
     private boolean sinEspacio(Persona persona, int id) {
@@ -213,7 +252,7 @@ public class MotorSimulacion {
     public ResultadoRuta evaluarRuta(Persona p, List<int[]> metas, boolean astar) {
         EquipoCarga equipo = equipos.get(p);
         Persona encargado = equipo == null ? p : equipo.lider();
-        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, id -> sinEspacio(encargado, id), (a,b) -> sinCupo(encargado,a,b), encargado.tipo == TipoPersona.RESCATE, pasoEspecial(encargado), evitaFuego(encargado));
+        return (astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, id -> sinEspacio(encargado, id), (a,b) -> sinCupo(encargado,a,b), encargado.tipo == TipoPersona.RESCATE, pasoEspecial(encargado), ambienteRuta(encargado));
     }
 
     private boolean rutaEquivalente(Persona p, List<int[]> metas, double optimo) {
@@ -225,7 +264,7 @@ public class MotorSimulacion {
             if (evitaFuego(p) && mapa.n[q[0]][q[1]].fuegoActivo || a == null || a.bloqueada() || !mapa.caminable(q[0], q[1], pasoEspecial(p)) || sinEspacio(p, destino)
                     || sinCupo(p, id, destino)) return false;
             costo += a.costoEntrada(mapa.n[q[0]][q[1]], p.tipo == TipoPersona.RESCATE)
-                    * (evitaFuego(p) ? mapa.n[q[0]][q[1]].costoHumo() : 1);
+                    * ambienteRuta(p).multiplicador(mapa.n[q[0]][q[1]]);
             id = destino;
         }
         if (costo > optimo + 4 * Math.ulp(optimo)) return false;
@@ -234,7 +273,8 @@ public class MotorSimulacion {
     }
 
     boolean rescateAlcanzable(PersonalRescate r, Persona paciente) {
-        if (incendio() && !r.alertada) return false;
+        if (fuga() && (desastre.fuga.encargado(r) || r.confundida())) return false;
+        if (alertaIndividual() && !r.alertada) return false;
         if (evitaFuego(r) && mapa.n[paciente.f][paciente.c].fuegoActivo) return false;
         if (incendio() && !(r instanceof Bombero)) {
             for (Persona otro : mapa.personas) {
@@ -245,12 +285,12 @@ public class MotorSimulacion {
         if (!mapa.caminable(paciente.f, paciente.c, pasoEspecial(r))) return false;
         AlgoritmoRuta algoritmo = params.astar ? estrella : dijkstra;
         ResultadoRuta ida = algoritmo.buscar(mapa, grafo, r.f, r.c, metasRescate(r, paciente),
-                id -> sinEspacio(r, id), (a,b) -> false, true, pasoEspecial(r), evitaFuego(r));
+                id -> sinEspacio(r, id), (a,b) -> false, true, pasoEspecial(r), ambienteRuta(r));
         if (ida.ruta == null) return false;
         int portadores = paciente.tipo == TipoPersona.MOVILIDAD ? 2 : 1;
         // Comprueba que el equipo formado pueda salir por enlaces de capacidad suficiente.
         return algoritmo.buscar(mapa, grafo, paciente.f, paciente.c, mapa.salidas(pasoEspecial(r)), null,
-                (a,b) -> grafo.arista(a,b).capacidad < portadores, true, pasoEspecial(r), evitaFuego(r)).ruta != null;
+                (a,b) -> grafo.arista(a,b).capacidad < portadores, true, pasoEspecial(r), ambienteRuta(r)).ruta != null;
     }
 
     List<int[]> metasRescate(Persona p, Persona objetivo) {
@@ -330,8 +370,8 @@ public class MotorSimulacion {
         for (Persona r : mapa.personas)
             if (r instanceof PersonalRescate && !equipos.containsKey(r)) asignarRuta(r);
         for (Persona paciente : mapa.personas) {
-            if (!paciente.activa() || paciente.asistida || !mapa.caminable(paciente.f, paciente.c, params.desastre == TipoDesastre.TERREMOTO || incendio())) continue;
-            if (!incendio() && paciente.tipo != TipoPersona.NINO && paciente.tipo != TipoPersona.MOVILIDAD) continue;
+            if (!paciente.activa() || paciente.asistida || !mapa.caminable(paciente.f, paciente.c, params.desastre == TipoDesastre.TERREMOTO || alertaIndividual())) continue;
+            if (!alertaIndividual() && paciente.tipo != TipoPersona.NINO && paciente.tipo != TipoPersona.MOVILIDAD) continue;
             int necesarios = paciente.tipo == TipoPersona.MOVILIDAD ? 2 : 1;
             int destino = paciente.f * mapa.cols + paciente.c;
             Nodo nodo = mapa.n[paciente.f][paciente.c];
@@ -355,7 +395,7 @@ public class MotorSimulacion {
                 listos.add((PersonalRescate) candidato);
                 if (listos.size() == necesarios) break;
             }
-            if (listos.size() != necesarios || ocupacionFinal > nodo.capacidadEfectiva(params.capacidad, params.desastre == TipoDesastre.TERREMOTO || incendio())) continue;
+            if (listos.size() != necesarios || ocupacionFinal > nodo.capacidadEfectiva(params.capacidad, params.desastre == TipoDesastre.TERREMOTO || alertaIndividual())) continue;
             EquipoCarga equipo = new EquipoCarga(paciente, listos);
             entradas.forEach((clave, cantidad) -> cruces.merge(clave, cantidad, Integer::sum));
             nodo.ocupacion -= paciente.tipo.ocupacion();
@@ -383,6 +423,7 @@ public class MotorSimulacion {
     private void registrarMovimiento(Persona p, int f, int c) {
         p.f = f;
         p.c = c;
+        if (fuga()) desastre.fuga.avisarDesde(p);
         p.pasos++;
         p.esperando = 0;
         Nodo n = mapa.n[f][c];
@@ -398,9 +439,10 @@ public class MotorSimulacion {
         desastre.paso(this);
         for (Persona p : mapa.personas) {
             Nodo n = mapa.n[p.f][p.c];
-            if (!incendio()) p.registrarExposicion(n.fuegoActivo, n.concentracionGas() > 60);
+            if (!alertaIndividual()) p.registrarExposicion(n.fuegoActivo, n.concentracionGas() > 60);
         }
-        if (incendio()) actualizarOcupacion();
+        if (alertaIndividual()) actualizarOcupacion();
+        if (fuga()) desastre.fuga.asignarReparacion();
         formarEquipos();
         java.util.Set<Persona> atendidos = new java.util.HashSet<>();
         for (Persona p : mapa.personas) {
@@ -411,24 +453,25 @@ public class MotorSimulacion {
             int ambiental = ocupado.danado ? NivelEstres.DANO : 0;
             if (ocupado.peligroso) ambiental += NivelEstres.PELIGRO;
             else if (cercaDePeligro(p)) ambiental += NivelEstres.PROXIMIDAD;
-            if (p.confusion > 0 || incendio() && !p.alertada) {
-                p.aumentarEstres(ambiental);
+            if (p.confusion > 0 || alertaIndividual() && !p.alertada) {
+                estresGrupo(p, ambiental);
                 continue;
             }
             repararBloqueo(p);
             asignarRuta(p);
             chequearRescate(p);
-            if (p instanceof Bombero && brigada.extinguir((Bombero)p)) {
+            if (incendio() && p instanceof Bombero && brigada.extinguir((Bombero)p) || fuga() && desastre.fuga.reparar(p)) {
                 p.aumentarEstres(ambiental);
                 continue;
             }
-            if (!conFoco(p) && p.objetivo == null && (p.salud != EstadoSalud.INCAPACITADO || p.asistida || p.ayudaFamiliar)
+            if (!enMision(p) && p.objetivo == null && (p.salud != EstadoSalud.INCAPACITADO || p.asistida || p.ayudaFamiliar)
                     && mapa.caminable(p.f, p.c, pasoEspecial(p)) && mapa.n[p.f][p.c].tipo == TipoNodo.SALIDA) {
                 evacuar(p, ambiental);
                 continue;
             }
             double v = p.tipo.vel * p.salud.vel;
             if (p.salud == EstadoSalud.INCAPACITADO) v = p.ayudaFamiliar ? 0.25 : 0;
+            if (fuga() && !(p instanceof Hazmat)) v *= params.gas.velocidad(ocupado.concentracionGas());
             if (evitaFuego(p)) v *= ocupado.velocidadHumo();
             if (ocupado.peligroso) v *= 0.65;
             double incremento = p.tipo == TipoPersona.RESCATE ? ambiental * PersonalRescate.FACTOR_ESTRES : ambiental;
@@ -436,6 +479,7 @@ public class MotorSimulacion {
             if (equipo != null && equipo.portadores.size() == 2) {
                 PersonalRescate segundo = equipo.portadores.get(1);
                 double otra = segundo.tipo.vel * segundo.salud.vel;
+                if (fuga() && !(segundo instanceof Hazmat)) otra *= params.gas.velocidad(ocupado.concentracionGas());
                 if (evitaFuego(segundo)) otra *= ocupado.velocidadHumo();
                 if (ocupado.peligroso) otra *= 0.65;
                 if (NivelEstres.supera(segundo.estres + incremento, params.umbral)) otra *= 0.6;
@@ -453,7 +497,7 @@ public class MotorSimulacion {
                         && (p.objetivo.ayudaFamiliar || p.objetivo.asistida)) {
                     Persona familiar = p.objetivo;
                     ResultadoRuta salida = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, familiar.f, familiar.c, mapa.salidas(),
-                            null, (a,b) -> false, false, false, evitaFuego(familiar));
+                            null, (a,b) -> false, false, false, ambienteRuta(familiar));
                     if (salida.ruta == null || salida.ruta.isEmpty()) break;
                     int[] siguiente = salida.ruta.get(0);
                     if (siguiente[0] != p.f || siguiente[1] != p.c) break;
@@ -490,7 +534,7 @@ public class MotorSimulacion {
                 p.ruta.remove(0);
                 if (equipo == null) registrarMovimiento(p, sig[0], sig[1]);
                 else for (Persona integrante : equipo.integrantes) registrarMovimiento(integrante, sig[0], sig[1]);
-                if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null && !conFoco(p)) {
+                if (ns.tipo == TipoNodo.SALIDA && p.objetivo == null && !enMision(p)) {
                     evacuar(p, ambiental);
                     break;
                 } else {
@@ -500,12 +544,20 @@ public class MotorSimulacion {
             }
             if (!p.evacuada && (equipo == null || equipos.containsKey(p))) estresGrupo(p, ambiental);
         }
-        if (incendio()) desastre.despachar(this);
+        if (alertaIndividual()) desastre.despachar(this);
         boolean todas = true;
         for (Persona p : mapa.personas) {
-            if (p.confusion > 0 && (p.activa() || p.tEvac == tick)) p.confusion--;
+            if (!fuga() && p.confusion > 0 && (p.activa() || p.tEvac == tick)) p.confusion--;
             if (p.activa() || p.evacuada && p.tEvac == tick) mapa.n[p.f][p.c].visitas++;
             if (p.activa()) todas = false;
+        }
+        if (fuga()) {
+            resultadoGas = desastre.fuga.resultado(todas);
+            if (resultadoGas.isEmpty()) return true;
+            terminado = todas && desastre.fuga.reparada();
+            log.accept("t=" + tick + " " + resultadoGas);
+            if (alTerminar != null) alTerminar.run();
+            return false;
         }
         if (incendio()) {
             resultadoIncendio = desastre.incendio.resultado(todas);
@@ -538,7 +590,7 @@ public class MotorSimulacion {
     private boolean registrarEspera(Persona p) {
         // Distingue un cuello de botella temporal de una zona aislada por bloqueos.
         List<int[]> metas = p.objetivo == null ? mapa.salidas(pasoEspecial(p)) : metasRescate(p, p.objetivo);
-        ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, null, (a,b) -> false, p.tipo == TipoPersona.RESCATE, pasoEspecial(p), evitaFuego(p));
+        ResultadoRuta libre = (params.astar ? estrella : dijkstra).buscar(mapa, grafo, p.f, p.c, metas, null, (a,b) -> false, p.tipo == TipoPersona.RESCATE, pasoEspecial(p), ambienteRuta(p));
         exploradosTotal += libre.explorados;
         if (libre.ruta == null) return false;
         int origen = p.f * mapa.cols + p.c;
@@ -570,7 +622,7 @@ public class MotorSimulacion {
             registrarSalida(equipo.paciente);
             for (PersonalRescate r : equipo.portadores) {
                 asignarRuta(r);
-                if (r.objetivo == null && !(r instanceof Bombero && !r.retirado)) {
+                if (r.objetivo == null && !enMision(r) && !(fuga() && !r.retirado) && !(r instanceof Bombero && !r.retirado)) {
                     mapa.n[r.f][r.c].ocupacion -= r.tipo.ocupacion();
                     registrarSalida(r);
                 }
@@ -584,7 +636,7 @@ public class MotorSimulacion {
     private void registrarSalida(Persona p) {
         if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
         p.objetivo = null;
-        if (incendio() && p instanceof Bombero) desastre.reemplazar((Bombero)p, tick);
+        if (incendio() && p instanceof Bombero || fuga() && p instanceof Hazmat) desastre.reemplazar((PersonalRescate)p, tick);
         p.evacuada = true;
         p.tEvac = tick;
         p.hist.add("t=" + tick + " EVACUADA");
@@ -634,7 +686,7 @@ public class MotorSimulacion {
         Nodo n = mapa.n[f][c];
         return !terminado && desastre.restantes(tick) == 0 && n.tipo == TipoNodo.SALIDA
                 && n.ocupacion + TipoPersona.RESCATE.ocupacion()
-                        <= n.capacidadEfectiva(params.capacidad, params.desastre == TipoDesastre.TERREMOTO || incendio());
+                        <= n.capacidadEfectiva(params.capacidad, params.desastre == TipoDesastre.TERREMOTO || alertaIndividual());
     }
 
     public PersonalRescate incorporarRefuerzo(int f, int c, java.util.function.IntFunction<PersonalRescate> crear) {
@@ -642,6 +694,7 @@ public class MotorSimulacion {
             throw new IllegalStateException("Los refuerzos requieren una salida disponible y el contador finalizado.");
         PersonalRescate r = crear.apply(mapa.sigId);
         if (r == null || r.id != mapa.sigId || !r.activa()) throw new IllegalArgumentException("Refuerzo inválido.");
+        if (fuga()) r.alertada = true;
         mapa.sigId++;
         r.f = f;
         r.c = c;

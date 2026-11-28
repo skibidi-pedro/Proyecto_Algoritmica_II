@@ -33,22 +33,16 @@ public class PruebasEmergencia {
                 exigir(tipo.requiereOrigen() == (origen >= 0), "Origen según tipo");
                 int llegada = tipo == TipoDesastre.TERREMOTO ? new int[]{12,14,15}[nivel.ordinal()] : -1;
                 exigir(m.emergencia().tickLlegada() == llegada, "Activación inicial");
-                if (tipo == TipoDesastre.INCENDIO) continue; // La primera detección se verifica en PruebasIncendio.
+                if (tipo.requiereOrigen()) continue; // Cada escenario prueba sus detectores y refuerzos.
                 m.mapa.n[0][0].peligroso = true;
                 m.paso();
                 exigir(m.emergencia().tickLlegada() == llegada, "Estrés ambiental independiente");
                 Persona persona = m.mapa.personas.get(0);
                 m.estresPorDesastre(persona, 1);
-                if (tipo.requiereOrigen()) llegada = 1 + new int[]{10,11,12}[nivel.ordinal()];
                 m.paso();
                 m.estresPorDesastre(persona, 1);
                 exigir(m.emergencia().tickLlegada() == llegada, "La cuenta empieza una vez");
-                if (tipo.requiereOrigen()) {
-                    while (m.tick < llegada) m.paso();
-                    exigir(m.mapa.personas.size() == 1, "Sin generación automática");
-                    PersonalRescate r = m.incorporarRefuerzo(0, 2, id -> new PersonalRescate(id, EstadoSalud.SANO, 0, 0));
-                    exigir(r.c == 2 && m.mapa.personas.contains(r), "Ingreso por la salida");
-                }
+
             }
         }
         MotorSimulacion manual = iniciar("H.S", TipoDesastre.INCENDIO);
@@ -66,7 +60,8 @@ public class PruebasEmergencia {
     }
 
     static void mortalidad() {
-        MotorSimulacion m = iniciar("HPPS\n#PERSONAS\n0 0 NINO INCAPACITADO\n0 2 RESCATE SANO", TipoDesastre.FUGA_DE_GAS);
+        MotorSimulacion m = iniciar("HPPS\n#PERSONAS\n0 0 NINO INCAPACITADO\n0 2 RESCATE SANO", TipoDesastre.NINGUNO);
+        m.params.prob = 0;
         Persona p = m.mapa.personas.get(0), r = m.mapa.personas.get(1);
         Nodo n = m.mapa.n[0][0];
         n.peligroso = n.fuegoActivo = true;

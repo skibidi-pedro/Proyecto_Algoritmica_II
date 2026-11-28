@@ -10,6 +10,7 @@ public abstract class Persona {
     public EstadoSalud salud;
     public boolean alertada;
     public int ticksHumo;
+    public final int[] exposicionGas = new int[4];
     public int f, c;
     public double estres, acum;
     public boolean evacuada, asistida;

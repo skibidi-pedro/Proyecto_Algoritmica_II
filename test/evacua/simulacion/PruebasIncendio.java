@@ -279,7 +279,7 @@ public class PruebasIncendio {
         m = motor("H.S", Intensidad.BAJA,0);
         Bombero b = new Bombero(m.mapa.sigId++,0,2,450);
         m.mapa.personas.add(b);
-        m.emergencia().solicitarBomberos(m);
+        m.emergencia().solicitarRefuerzos(m);
         b.aumentarEstres(2000);
         m.paso();
         verificar(b.evacuada && b.retirado, "retiro individual");

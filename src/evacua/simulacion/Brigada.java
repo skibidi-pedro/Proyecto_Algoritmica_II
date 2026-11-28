@@ -9,14 +9,13 @@ import java.util.*;
 final class Brigada {
     private final MotorSimulacion m;
     private final Set<Persona> reservadas = new HashSet<>();
-    private final Set<Integer> focos = new HashSet<>();
     private final Set<Bombero> asignados = new HashSet<>();
 
     Brigada(MotorSimulacion m) { this.m = m; }
 
     void planificar() {
         reservadas.clear();
-        focos.clear();
+        m.intervenciones.clear();
         asignados.clear();
         List<Bombero> libres = new ArrayList<>();
         for (Persona p : m.mapa.personas) {
@@ -82,7 +81,7 @@ final class Brigada {
         Map<Integer,Integer> focoPorPosicion = new HashMap<>();
         List<int[]> metas = new ArrayList<>();
         for (int id = 0; id < m.grafo.total(); id++) {
-            if (!m.mapa.n[id / m.mapa.cols][id % m.mapa.cols].fuegoActivo || focos.contains(id)) continue;
+            if (!m.mapa.n[id / m.mapa.cols][id % m.mapa.cols].fuegoActivo || m.intervenciones.containsKey(id)) continue;
             for (int[] q : posiciones(id)) {
                 if (focoPorPosicion.putIfAbsent(q[0] * m.mapa.cols + q[1], id) == null) metas.add(q);
             }
@@ -92,7 +91,7 @@ final class Brigada {
         if (ruta.ruta == null) return;
         int[] fin = ruta.ruta.isEmpty() ? new int[]{b.f, b.c} : ruta.ruta.get(ruta.ruta.size() - 1);
         b.foco = focoPorPosicion.get(fin[0] * m.mapa.cols + fin[1]);
-        focos.add(b.foco);
+        m.intervenciones.put(b.foco,b);
         asignados.add(b);
     }
 

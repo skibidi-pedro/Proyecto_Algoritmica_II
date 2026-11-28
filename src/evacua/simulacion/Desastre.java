@@ -12,6 +12,8 @@ public class Desastre {
     private final Intensidad intensidad;
     private final int origen;
     final Incendio incendio;
+    public final FugaGas fuga;
+    private int hazmatPendientes;
     private final java.util.ArrayDeque<int[]> reemplazos = new java.util.ArrayDeque<>();
     private int llegada = -1;
     private boolean confusionAsignada;
@@ -37,6 +39,8 @@ public class Desastre {
             if (nodos.isEmpty()) throw new IllegalArgumentException("El plano no tiene un origen válido.");
             origen = nodos.get(m.rnd.nextInt(nodos.size()));
         }
+        if (tipo == TipoDesastre.FUGA_DE_GAS && p.gas == null) throw new IllegalArgumentException("Seleccione el tipo de gas.");
+        fuga = tipo == TipoDesastre.FUGA_DE_GAS ? new FugaGas(m, origen) : null;
         incendio = tipo == TipoDesastre.INCENDIO ? new Incendio(m, origen, intensidad) : null;
         if (tipo == TipoDesastre.TERREMOTO) {
             llegada = intensidad.demora(tipo);
@@ -45,28 +49,36 @@ public class Desastre {
     }
 
     private boolean origenValido(Nodo n) {
+        if (tipo == TipoDesastre.FUGA_DE_GAS) return n.tipo != TipoNodo.VACIO && !n.bloqueado;
         return tipo == TipoDesastre.INCENDIO ? n.combustible() : n.tipo != TipoNodo.VACIO;
     }
 
-    void solicitarBomberos(MotorSimulacion m) {
+    void solicitarRefuerzos(MotorSimulacion m) {
         if (llegada >= 0) return;
         llegada = m.tick + intensidad.demora(tipo);
         pendientes = intensidad.refuerzos;
-        m.log.accept("t=" + m.tick + " primera detección; bomberos solicitados para t=" + llegada);
+        if (fuga != null) {
+            hazmatPendientes = fuga.tipo == TipoGas.GAS_NATURAL ? 1 : 2 + 2 * intensidad.ordinal();
+            pendientes = hazmatPendientes + (fuga.tipo == TipoGas.GAS_NATURAL ? intensidad.refuerzos : 0);
+            for (Persona p : m.mapa.personas) if (p instanceof PersonalRescate && p.activa()) p.alertada = true;
+        }
+        m.log.accept("t=" + m.tick + " primera detección; refuerzos solicitados para t=" + llegada);
     }
 
-    void reemplazar(Bombero b, int tick) {
+    void reemplazar(PersonalRescate b, int tick) {
         if (b.retirado) reemplazos.add(new int[]{tick + 4, Math.min(500, (int)b.limiteEstres() + 50)});
     }
+
+    boolean reemplazoEnCamino(int tick) { return !reemplazos.isEmpty() && reemplazos.peek()[0] > tick; }
 
     boolean haySolicitudes() { return pendientes > 0 || !reemplazos.isEmpty(); }
 
     void despachar(MotorSimulacion m) {
-        boolean tareas = incendio.focos > 0 || m.mapa.personas.stream().anyMatch(p -> p.activa()
+        boolean tareas = fuga != null ? fuga.requierePersonal() : incendio.focos > 0 || m.mapa.personas.stream().anyMatch(p -> p.activa()
                 && !(p instanceof Bombero) && (p.salud == EstadoSalud.HERIDO || p.salud == EstadoSalud.INCAPACITADO
                 || m.mapa.n[p.f][p.c].humo >= 95));
         if (!tareas) {
-            pendientes = 0;
+            pendientes = hazmatPendientes = 0;
             reemplazos.clear();
         } else if (llegada >= 0 && m.tick >= llegada && haySolicitudes()) ingresarRefuerzos(m);
     }
@@ -77,9 +89,7 @@ public class Desastre {
 
     void estres(MotorSimulacion m, Persona p, double incremento) {
         if (tipo == TipoDesastre.NINGUNO || !p.activa() || !Double.isFinite(incremento) || incremento <= 0) return;
-        double previo = p.estres;
         p.aumentarEstres(incremento);
-        if (tipo == TipoDesastre.FUGA_DE_GAS && llegada < 0 && p.estres > previo) llegada = m.tick + intensidad.demora(tipo);
     }
 
     void iniciarConfusion(MotorSimulacion m) {
@@ -90,6 +100,11 @@ public class Desastre {
     }
 
     void paso(MotorSimulacion m) {
+        if (fuga != null) {
+            fuga.ambiente();
+            fuga.personas();
+            return;
+        }
         if (incendio != null) {
             incendio.ambiente();
             incendio.personas();
@@ -144,8 +159,13 @@ public class Desastre {
                 continue;
             }
             int limite = pendientes > 0 ? 100 : reemplazos.remove()[1];
-            PersonalRescate r = m.incorporarRefuerzo(q[0], q[1], id -> incendio == null
-                    ? new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]) : new Bombero(id, q[0], q[1], limite));
+            boolean hazmat = fuga != null && (hazmatPendientes > 0 || pendientes == 0);
+            PersonalRescate r = m.incorporarRefuerzo(q[0], q[1], id -> {
+                if (hazmat) return new Hazmat(id, q[0], q[1], limite);
+                if (incendio != null) return new Bombero(id, q[0], q[1], limite);
+                return new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]);
+            });
+            if (hazmatPendientes > 0) hazmatPendientes--;
             m.log.accept("t=" + m.tick + " llega refuerzo P" + r.id + " por " + m.mapa.idDe(q[0], q[1]));
             if (pendientes > 0) pendientes--;
             sinPlaza = 0;

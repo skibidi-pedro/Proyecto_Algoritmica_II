@@ -1,6 +1,9 @@
 package evacua.vista;
 
 import evacua.edificio.Nodo;
+import evacua.simulacion.TipoGas;
+import java.awt.image.BufferedImage;
+import java.util.HashSet;
 import javax.swing.*;
 import java.awt.*;
 import java.util.HashMap;
@@ -17,7 +20,30 @@ public class PruebasInterfaz {
         }
     }
 
+    private static void indicadoresGas() {
+        HashSet<Integer> tonos = new HashSet<>();
+        for (TipoGas gas : TipoGas.values()) {
+            Color baja = PanelEdificio.colorGas(gas, 25);
+            Color alta = PanelEdificio.colorGas(gas, 100);
+            if (PanelEdificio.colorGas(gas, 0).getAlpha() != 0 || baja.getAlpha() <= 0
+                    || alta.getAlpha() <= baja.getAlpha() || !tonos.add(alta.getRGB() & 0xffffff))
+                throw new AssertionError("Color o intensidad de " + gas);
+        }
+        int lado = PanelEdificio.CELL;
+        BufferedImage celda = new BufferedImage(lado, lado, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = celda.createGraphics();
+        try {
+            PanelEdificio.dibujarFuente(g, 0, 0, false);
+            if (celda.getRGB(lado - 8, 8) != 0xffef7815) throw new AssertionError("Fuente activa");
+            PanelEdificio.dibujarFuente(g, 0, 0, true);
+            if (celda.getRGB(lado - 8, 8) != 0xff15803d) throw new AssertionError("Fuente reparada");
+        } finally {
+            g.dispose();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        indicadoresGas();
         Nodo n = new Nodo();
         n.danado = true;
         n.ocupacion = 1;
@@ -29,7 +55,7 @@ public class PruebasInterfaz {
         if (PanelEdificio.intensidadCalor(n, true, 2, 5) != 0 || PanelEdificio.intensidadCalor(n, false, 2, 5) <= 0)
             throw new AssertionError("Ocupación actual e histórica");
         if (GraphicsEnvironment.isHeadless()) {
-            System.out.println("Calor: OK. La prueba de botones requiere una pantalla.");
+            System.out.println("Calor e indicadores de gas: OK. La prueba de botones requiere una pantalla.");
             return;
         }
         SwingUtilities.invokeAndWait(() -> {

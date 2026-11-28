@@ -368,7 +368,7 @@ public class VentanaPrincipal extends JFrame {
                     + (motor.emergencia().restantes(motor.tick) > 0 ? "  |  Refuerzos en " + motor.emergencia().restantes(motor.tick) + " ticks" : "")
                     + (motor.emergencia().restantes(motor.tick) == 0 && motor.emergencia().refuerzosPendientes() > 0
                             ? "  |  Refuerzos pendientes: " + motor.emergencia().refuerzosPendientes() : "")
-                    + (!motor.resultadoIncendio.isEmpty() ? "  |  " + motor.resultadoIncendio : "")
+                    + (!motor.resultadoEscenario().isEmpty() ? "  |  " + motor.resultadoEscenario() : "")
                     + (motor.terminado ? "  |  TERMINADA" : ""));
         }
     }
@@ -502,10 +502,13 @@ public class VentanaPrincipal extends JFrame {
         desastre.setSelectedItem(params.desastre);
         JComboBox<evacua.simulacion.Intensidad> intensidad = new JComboBox<>(evacua.simulacion.Intensidad.values());
         intensidad.setSelectedItem(params.nivel);
+        JComboBox<evacua.simulacion.TipoGas> gas = new JComboBox<>(evacua.simulacion.TipoGas.values());
+        gas.setSelectedItem(params.gas);
         JComboBox<String> origen = new JComboBox<>(new String[]{"Aleatorio", "Seleccionar en el plano"});
         origen.setSelectedIndex(params.origenManual ? 1 : 0);
         Runnable habilitar = () -> {
             evacua.simulacion.TipoDesastre tipo = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            gas.setEnabled(tipo == evacua.simulacion.TipoDesastre.FUGA_DE_GAS);
             origen.setEnabled(tipo.requiereOrigen());
             intensidad.setEnabled(tipo != evacua.simulacion.TipoDesastre.NINGUNO);
         };
@@ -513,6 +516,8 @@ public class VentanaPrincipal extends JFrame {
         habilitar.run();
         f.add(new JLabel("Desastre"));
         f.add(desastre);
+        f.add(new JLabel("Tipo de gas"));
+        f.add(gas);
         f.add(new JLabel("Intensidad"));
         f.add(intensidad);
         f.add(new JLabel("Origen"));
@@ -539,6 +544,7 @@ public class VentanaPrincipal extends JFrame {
             int ca = Integer.parseInt(cap.getText().trim());
             if (!Double.isFinite(pr) || !Double.isFinite(um) || pr < 0 || pr > 1 || li < 1 || um <= 0 || ca < 1) throw new NumberFormatException();
             params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
+            params.gas = (evacua.simulacion.TipoGas) gas.getSelectedItem();
             params.nivel = (evacua.simulacion.Intensidad) intensidad.getSelectedItem();
             params.origenManual = params.desastre.requiereOrigen() && origen.getSelectedIndex() == 1;
             seleccionandoOrigen = params.origenManual;

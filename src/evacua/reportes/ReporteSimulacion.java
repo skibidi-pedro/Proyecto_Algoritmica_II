@@ -15,7 +15,7 @@ public class ReporteSimulacion {
             StringBuilder sb = new StringBuilder();
             sb.append("REPORTE DE SIMULACION\n=====================\n");
             sb.append("Algoritmo: ").append(m.params.astar ? "A*" : "Dijkstra").append("   Semilla: ").append(m.params.semilla).append('\n');
-            if (!m.resultadoIncendio.isEmpty()) sb.append(m.resultadoIncendio).append('\n');
+            if (!m.resultadoEscenario().isEmpty()) sb.append(m.resultadoEscenario()).append('\n');
             sb.append("Ticks simulados: ").append(m.tick).append('\n');
             long fallecidas = m.mapa.personas.stream().filter(p -> p.tickMuerte >= 0).count();
             sb.append("Personas: ").append(m.mapa.personas.size()).append("   Evacuadas: ").append(m.evacuadas())

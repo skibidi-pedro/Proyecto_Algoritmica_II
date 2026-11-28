@@ -14,7 +14,9 @@ public class Nodo {
 
     public boolean permeable() { return combustible() && !bloqueado; }
 
-    public double costoHumo() {
+    public double costoHumo() { return costoConcentracion(humo); }
+
+    public static double costoConcentracion(double humo) {
         if (humo >= 95) return 5;
         if (humo >= 75) return 3;
         if (humo >= 50) return 2;

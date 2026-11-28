@@ -60,7 +60,7 @@ final class Incendio {
         Difusion.aplicar(m.grafo, humo, i -> nodos[i].permeable());
         for (int i = 0; i < nodos.length; i++) {
             Nodo n = nodos[i];
-            double nuevo = n.tipo == TipoNodo.SALIDA && !n.bloqueado ? Math.max(0, humo[i] - 5) : humo[i];
+            double nuevo = Difusion.ventilar(n, humo[i]);
             cambioAmbiental |= Math.abs(nuevo - n.humo) > 1e-9;
             n.humo = nuevo;
             if (n.fuegoActivo && ++n.ticksArdiendo >= dano) n.danado = true;
@@ -183,7 +183,7 @@ final class Incendio {
                     p.hist.add("t=" + m.tick + " detecta el incendio");
                 }
                 if (p.departamentoInicial > 0) departamentos.add(p.departamentoInicial);
-                m.emergencia().solicitarBomberos(m);
+                m.emergencia().solicitarRefuerzos(m);
             }
             if (p instanceof Bombero) continue;
             p.aumentarEstres(Math.max(n.fuegoActivo ? estresFuego : 0, Math.max(cerca ? estresVecino : 0, n.humo > 10 ? estresHumo : 0)));

@@ -2,6 +2,7 @@ package evacua.rutas;
 
 import evacua.edificio.Edificio;
 import evacua.edificio.Grafo;
+import evacua.edificio.Nodo;
 import evacua.estructuras.ColaPrioridad;
 
 import java.util.ArrayList;
@@ -10,6 +11,15 @@ import java.util.LinkedList;
 import java.util.List;
 
 public abstract class AlgoritmoRuta {
+    public enum Ambiente {
+        NORMAL, HUMO, GAS;
+        public double multiplicador(Nodo nodo) {
+            if (this == HUMO) return nodo.costoHumo();
+            if (this == GAS) return Nodo.costoConcentracion(nodo.concentracionGas());
+            return 1;
+        }
+    }
+
     public abstract String nombre();
 
     protected abstract double h(Grafo g, int f, int c, List<int[]> metas);
@@ -44,6 +54,12 @@ public abstract class AlgoritmoRuta {
     public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
                                 java.util.function.IntPredicate evitar, java.util.function.BiPredicate<Integer, Integer> sinCupo,
                                 boolean rescate, boolean pasoEspecial, boolean evitarIncendio) {
+        return buscar(e, g, sf, sc, metas, evitar, sinCupo, rescate, pasoEspecial, evitarIncendio ? Ambiente.HUMO : Ambiente.NORMAL);
+    }
+
+    public ResultadoRuta buscar(Edificio e, Grafo g, int sf, int sc, List<int[]> metas,
+                                java.util.function.IntPredicate evitar, java.util.function.BiPredicate<Integer, Integer> sinCupo,
+                                boolean rescate, boolean pasoEspecial, Ambiente ambiente) {
         long t0 = System.nanoTime();
         if (!e.caminable(sf, sc, pasoEspecial)) return new ResultadoRuta();
         int C = g.cols, total = g.total();
@@ -76,10 +92,10 @@ public abstract class AlgoritmoRuta {
             }
             for (Grafo.Arista a : g.ady[id]) {
                 int nid = a.destino;
-                if (evitarIncendio && e.n[nid / C][nid % C].fuegoActivo) continue;
+                Nodo nodo = e.n[nid / C][nid % C];
+                if (ambiente == Ambiente.HUMO && nodo.fuegoActivo) continue;
                 if (a.bloqueada() || sinCupo.test(id, nid) || !e.caminable(nid / C, nid % C, pasoEspecial) || (evitar != null && evitar.test(nid))) continue;
-                double nd = dist[id] + a.costoEntrada(e.n[nid / C][nid % C], rescate)
-                        * (evitarIncendio ? e.n[nid / C][nid % C].costoHumo() : 1);
+                double nd = dist[id] + a.costoEntrada(nodo, rescate) * ambiente.multiplicador(nodo);
                 if (nd < dist[nid]) {
                     dist[nid] = nd;
                     prev[nid] = id;
