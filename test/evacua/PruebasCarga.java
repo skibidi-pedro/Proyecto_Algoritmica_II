@@ -41,7 +41,7 @@ public class PruebasCarga {
         m.paso();
         for (Persona p : m.mapa.personas) exigir(p.c == 1 && p.pasos == 1, "Traslado conjunto");
         while (m.paso()) {}
-        exigir(m.evacuadas() == 3, "Entrega coordinada");
+        exigir(m.evacuadas() == 1, "Entrega coordinada");
 
         m = motor("HPS", RESCATE + RESCATE + "0 0 MOVILIDAD INCAPACITADO\n0 1 NINO INCAPACITADO");
         m.params.capacidad = 1;
@@ -59,7 +59,7 @@ public class PruebasCarga {
         exigir(Math.abs(r.estres - 1.2) < 1e-9 && m.mapa.personas.get(1).estres == 4, "Estrés fraccionario individual");
         r.aumentarEstres(400);
         while (m.paso()) {}
-        exigir(r.retirado && r.estres == 100 && r.evacuada && m.mapa.personas.get(1).evacuada
+        exigir(r.retirado && r.estres == 100 && r.fuera() && m.mapa.personas.get(1).evacuada
                 && !m.mapa.personas.get(2).asistida, "Termina la carga y se retira sin otra misión");
     }
 
@@ -72,10 +72,10 @@ public class PruebasCarga {
         m.paso();
         m.mapa.bloquear(0,2,true);
         m.paso();
-        exigir(!r.evacuada && r.ruta.isEmpty(), "El equipo espera ante un bloqueo");
+        exigir(!r.fuera() && r.ruta.isEmpty(), "El equipo espera ante un bloqueo");
         m.mapa.bloquear(0,2,false);
         while (m.paso()) {}
-        exigir(m.evacuadas() == 2, "Reevalúa al liberar el destino");
+        exigir(m.evacuadas() == 1, "Reevalúa al liberar el destino");
     }
 
     static void permanencia() {
@@ -85,21 +85,21 @@ public class PruebasCarga {
             m.params.astar = astar;
             Persona r = m.mapa.personas.get(0), primero = m.mapa.personas.get(2), segundo = m.mapa.personas.get(3);
             m.paso();
-            exigir(!r.evacuada && r.objetivo == primero, "Sale a buscar al objetivo alcanzable desde la salida");
+            exigir(!r.fuera() && r.objetivo == primero, "Sale a buscar al objetivo alcanzable desde la salida");
             while (!primero.evacuada && m.paso()) {}
-            exigir(primero.evacuada && !r.evacuada && r.objetivo == segundo, "Después de entregar vuelve a buscar");
+            exigir(primero.evacuada && !r.fuera() && r.objetivo == segundo, "Después de entregar vuelve a buscar");
             while (m.paso()) {}
-            exigir(segundo.evacuada && r.evacuada && !m.mapa.personas.get(1).asistida
+            exigir(segundo.evacuada && r.fuera() && !m.mapa.personas.get(1).asistida
                     && r.tEvac == segundo.tEvac && r.tEvac < m.params.limite, "Sale al quedar solo el objetivo aislado");
         }
         MotorSimulacion m = motor("H.SP.H", "0 2 RESCATE SANO\n0 3 MOVILIDAD INCAPACITADO\n0 5 RESCATE SANO");
         m.paso();
-        exigir(m.mapa.personas.get(0).evacuada, "Un segundo portador aislado no hace viable el rescate");
+        exigir(m.mapa.personas.get(0).fuera(), "Un segundo portador aislado no hace viable el rescate");
         m = motor("SPPH", RESCATE + "0 2 NINO INCAPACITADO");
         PersonalRescate retirado = (PersonalRescate) m.mapa.personas.get(0);
         retirado.aumentarEstres(400);
         m.paso();
-        exigir(retirado.evacuada && !m.mapa.personas.get(1).asistida, "Con estrés 100 sale aunque haya un objetivo");
+        exigir(retirado.fuera() && !m.mapa.personas.get(1).asistida, "Con estrés 100 sale aunque haya un objetivo");
     }
 
     public static void main(String[] args) {

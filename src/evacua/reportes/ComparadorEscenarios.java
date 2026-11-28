@@ -28,7 +28,7 @@ public final class ComparadorEscenarios {
         f.nombre = nombre;
         f.algoritmo = params.astar ? "A*" : "Dijkstra";
         f.semilla = params.semilla;
-        f.personas = m.mapa.personas.size();
+        f.personas = m.residentes();
         f.evacuadas = m.evacuadas();
         f.ticks = m.tick;
         f.tiempoPromedio = m.promedioEvac();

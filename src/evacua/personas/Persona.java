@@ -22,7 +22,8 @@ public abstract class Persona {
 
     public int tickMuerte = -1, confusion, ticksFuego, ticksGas;
 
-    public boolean activa() { return !evacuada && tickMuerte < 0; }
+    public boolean fuera() { return evacuada || (this instanceof PersonalRescate && tEvac >= 0); }
+    public boolean activa() { return !fuera() && tickMuerte < 0; }
 
     public boolean confundida() { return activa() && confusion > 0; }
 

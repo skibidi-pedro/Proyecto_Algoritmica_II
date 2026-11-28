@@ -75,7 +75,7 @@ public class MotorSimulacion {
 
     private void actualizarOcupacion() {
         for (Nodo[] fila : mapa.n) for (Nodo n : fila) n.ocupacion = 0;
-        for (Persona p : mapa.personas) if (!p.evacuada) mapa.n[p.f][p.c].ocupacion += ocupacion(p);
+        for (Persona p : mapa.personas) if (!p.fuera()) mapa.n[p.f][p.c].ocupacion += ocupacion(p);
     }
     public int tick;
     public boolean terminado;
@@ -114,6 +114,7 @@ public class MotorSimulacion {
             java.util.Arrays.fill(p.exposicionGas, 0);
             p.ticksHumo = 0;
             p.evacuada = false;
+            p.tEvac = -1;
             p.tickMuerte = -1;
             p.ticksFuego = p.ticksGas = p.confusion = 0;
             p.asistida = false;
@@ -504,7 +505,7 @@ public class MotorSimulacion {
                 continue;
             }
             p.acum += v;
-            while (p.acum >= 1 && !p.evacuada) {
+            while (p.acum >= 1 && !p.fuera()) {
                 p.acum -= 1;
                 if (p.ruta.isEmpty() && p.tipo == TipoPersona.ADULTO && p.objetivo != null
                         && (p.objetivo.ayudaFamiliar || p.objetivo.asistida)) {
@@ -555,13 +556,15 @@ public class MotorSimulacion {
                     if (p.acum >= 1) asignarRuta(p);
                 }
             }
-            if (!p.evacuada && (equipo == null || equipos.containsKey(p))) estresGrupo(p, ambiental);
+            if (!p.fuera() && (equipo == null || equipos.containsKey(p))) estresGrupo(p, ambiental);
         }
         if (alertaIndividual()) desastre.despachar(this);
+        int pendientesAntes = desastre.refuerzosPendientes();
+        if (params.desastre == TipoDesastre.TERREMOTO) desastre.despacharTerremoto(this);
         boolean todas = true;
         for (Persona p : mapa.personas) {
             if (!fuga() && p.confusion > 0 && (p.activa() || p.tEvac == tick)) p.confusion--;
-            if (p.activa() || p.evacuada && p.tEvac == tick) mapa.n[p.f][p.c].visitas++;
+            if (p.activa() || p.fuera() && p.tEvac == tick) mapa.n[p.f][p.c].visitas++;
             if (p.activa()) todas = false;
         }
         if (fuga()) {
@@ -575,7 +578,7 @@ public class MotorSimulacion {
         if (incendio()) {
             resultadoIncendio = desastre.incendio.resultado(todas);
             if (!resultadoIncendio.isEmpty()) {
-                terminado = evacuadas() == mapa.personas.size() && desastre.incendio.focos == 0;
+                terminado = evacuadas() == residentes() && desastre.incendio.focos == 0;
                 log.accept("t=" + tick + " " + resultadoIncendio);
                 if (alTerminar != null) alTerminar.run();
                 return false;
@@ -585,17 +588,16 @@ public class MotorSimulacion {
         // Respeta el límite, dando turno de ingreso a los refuerzos que un civil aún espera.
         boolean esperarIngreso = false;
         if ((todas || tick >= params.limite) && desastre.refuerzosPendientes() > 0) {
-            boolean esperaRescate = mapa.personas.stream().anyMatch(p -> p.activa()
-                    && (p.tipo == TipoPersona.NINO || p.tipo == TipoPersona.MOVILIDAD));
-            if (tick < desastre.tickLlegada()) esperarIngreso = esperaRescate;
-            else esperarIngreso = mapa.salidas(true).stream().anyMatch(q -> admiteRefuerzo(q[0], q[1]));
+            if (tick < desastre.tickLlegada()) esperarIngreso = true;
+            else esperarIngreso = desastre.refuerzosPendientes() < pendientesAntes
+                    || mapa.salidas(true).stream().anyMatch(q -> admiteRefuerzo(q[0], q[1]));
         }
         if ((todas || tick >= params.limite) && !esperarIngreso) {
             terminado = true;
             for (Persona p : mapa.personas)
                 if (p.activa()) p.hist.add("t=" + tick + " NO EVACUADA (tiempo limite)");
             if (alTerminar != null) alTerminar.run();
-            log.accept("Simulacion terminada en t=" + tick + ": " + evacuadas() + "/" + mapa.personas.size() + " evacuadas.");
+            log.accept("Simulacion terminada en t=" + tick + ": " + evacuadas() + "/" + residentes() + " evacuadas.");
         }
         return !terminado;
     }
@@ -650,9 +652,10 @@ public class MotorSimulacion {
         if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
         p.objetivo = null;
         if (incendio() && p instanceof Bombero || fuga() && p instanceof Hazmat) desastre.reemplazar((PersonalRescate)p, tick);
-        p.evacuada = true;
+        p.evacuada = !(p instanceof PersonalRescate);
         p.tEvac = tick;
-        p.hist.add("t=" + tick + " EVACUADA");
+        p.hist.add("t=" + tick + (p.evacuada ? " EVACUADA" : " FIN DE SERVICIO"));
+        if (!p.evacuada) return;
         salidas.encolar(new RegistroSalida(salidas.tamano() + 1, p, tick));
     }
 
@@ -719,6 +722,8 @@ public class MotorSimulacion {
         asignarRuta(r);
         return r;
     }
+
+    public int residentes() { return (int) mapa.personas.stream().filter(p -> !(p instanceof PersonalRescate)).count(); }
 
     public int evacuadas() {
         int k = 0;

@@ -137,6 +137,9 @@ public class Desastre {
             sacudir(m);
             if (m.tick == intensidad.duracion) m.log.accept("t=" + m.tick + " finaliza el terremoto.");
         }
+    }
+
+    void despacharTerremoto(MotorSimulacion m) {
         if (m.tick >= llegada && pendientes > 0) ingresarRefuerzos(m);
     }
 

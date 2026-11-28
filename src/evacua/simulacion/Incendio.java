@@ -91,7 +91,7 @@ final class Incendio {
 
     String resultado(boolean todosFuera) {
         if (todosFuera && focos == 0) {
-            if (m.evacuadas() == m.mapa.personas.size()) return "Todos evacuaron y el incendio está extinguido.";
+            if (m.evacuadas() == m.residentes()) return "Todos evacuaron y el incendio está extinguido.";
             return "Incendio extinguido con fallecidos. Evacuaron todos los supervivientes.";
         }
         if (m.emergencia().alarmaPendiente(m.tick)) return "";

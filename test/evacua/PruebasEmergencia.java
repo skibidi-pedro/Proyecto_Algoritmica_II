@@ -199,7 +199,7 @@ public class PruebasEmergencia {
             pasoTranquilo(m);
             pasoTranquilo(m);
             pasoTranquilo(m);
-            exigir(m.evacuadas() == 2 && m.mapa.personas.get(0).f == 1 && m.mapa.n[0][1].bloqueado
+            exigir(m.evacuadas() == 1 && m.mapa.personas.get(0).f == 1 && m.mapa.n[0][1].bloqueado
                     && m.mapa.n[1][1].bloqueado && m.mapa.n[1][0].bloqueado, "Carga entre pisos por accesos bloqueados");
         }
     }

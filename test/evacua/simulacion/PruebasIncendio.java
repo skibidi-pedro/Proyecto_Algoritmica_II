@@ -205,7 +205,7 @@ public class PruebasIncendio {
         igual(b.estres,0);
         verificar(b.salud == EstadoSalud.SANO && civil.salud == EstadoSalud.HERIDO, "inmunidad individual");
         for (int t = 0; t < 200 && !m.terminado; t++) m.paso();
-        verificar(m.terminado && civil.evacuada && m.mapa.n[0][0].protegido && b.evacuada, "entrega y extinción final");
+        verificar(m.terminado && civil.evacuada && m.mapa.n[0][0].protegido && b.fuera(), "entrega y extinción final");
     }
 
     static void refuerzos() {
@@ -226,7 +226,7 @@ public class PruebasIncendio {
             Bombero retirado = (Bombero)m.mapa.personas.get(1);
             retirado.aumentarEstres(1000);
             m.paso();
-            verificar(retirado.evacuada, "retirada");
+            verificar(retirado.fuera(), "retirada");
             int tSalida = m.tick;
             while (m.tick < tSalida+4) m.paso();
             verificar(m.mapa.personas.size() == cantidad+2, "solo un reemplazo");
@@ -293,7 +293,7 @@ public class PruebasIncendio {
         m.emergencia().solicitarRefuerzos(m);
         b.aumentarEstres(2000);
         m.paso();
-        verificar(b.evacuada && b.retirado, "retiro individual");
+        verificar(b.fuera() && b.retirado, "retiro individual");
         m.emergencia().incendio.apagar(0,true);
         m.paso();
         verificar(m.terminado && !m.emergencia().haySolicitudes(), "cancelación de refuerzos y reemplazos");
@@ -302,7 +302,7 @@ public class PruebasIncendio {
         m.mapa.personas.add(b);
         m.emergencia().incendio.apagar(0,true);
         m.paso();
-        verificar(b.evacuada && !m.emergencia().haySolicitudes(), "evacuación normal sin reemplazo");
+        verificar(b.fuera() && !m.emergencia().haySolicitudes(), "evacuación normal sin reemplazo");
     }
 
     static void alarmaGeneral() {
@@ -357,7 +357,7 @@ public class PruebasIncendio {
         m = motor("HPS\n#PERSONAS\n0 1 ADULTO SANO",Intensidad.BAJA,0);
         m.params.limite = 1;
         for (int t=0; t<150 && !m.terminado; t++) m.paso();
-        verificar(m.terminado && m.emergencia().incendio.focos == 0 && m.evacuadas() == m.mapa.personas.size(), "continúa tras evacuación civil y límite clásico");
+        verificar(m.terminado && m.emergencia().incendio.focos == 0 && m.evacuadas() == m.residentes(), "continúa tras evacuación civil y límite clásico");
         verificar(m.mapa.n[0][0].humo > 0, "humo residual");
     }
 

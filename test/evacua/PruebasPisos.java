@@ -62,9 +62,9 @@ public class PruebasPisos {
         MotorSimulacion m = new MotorSimulacion(e.copia(), new ParametrosSimulacion(), x -> { });
         m.iniciar();
         while (m.paso()) { }
-        chk(m.evacuadas() == 8 && !m.mapa.personas.get(4).evacuada, "el adulto incapacitado queda sin modalidad de carga: " + m.evacuadas());
+        chk(m.evacuadas() == 7 && !m.mapa.personas.get(4).evacuada, "el adulto incapacitado queda sin modalidad de carga: " + m.evacuadas());
 
-        chk(m.salidas.tamano() == 8, "la cola de salidas tiene 8 registros");
+        chk(m.salidas.tamano() == 7, "la cola de salidas tiene 8 registros");
         ParametrosSimulacion pr = new ParametrosSimulacion();
         pr.prob = 0;
         MotorSimulacion m2 = new MotorSimulacion(e.copia(), pr, x -> { });

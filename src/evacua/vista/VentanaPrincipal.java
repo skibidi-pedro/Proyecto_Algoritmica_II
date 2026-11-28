@@ -369,7 +369,7 @@ public class VentanaPrincipal extends JFrame {
         } else if (motor == null) {
             estado.setText("Modo edicion  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  Personas: " + m.personas.size() + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra"));
         } else {
-            estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + m.personas.size()
+            estado.setText("Simulando  |  Piso " + (pisoActual + 1) + "/" + m.pisos + "  |  t=" + motor.tick + "  |  Evacuadas: " + motor.evacuadas() + "/" + motor.residentes()
                     + "  |  Algoritmo: " + (params.astar ? "A*" : "Dijkstra") + (motor.params.desastre == evacua.simulacion.TipoDesastre.TERREMOTO
                             ? "  |  Terremoto " + motor.params.nivel + (motor.emergencia().ticksTemblorRestantes(motor.tick) > 0
                                 ? " activo: " + motor.emergencia().ticksTemblorRestantes(motor.tick) + " ticks restantes" : " finalizado") : "")

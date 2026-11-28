@@ -86,7 +86,7 @@ public class PanelEdificio extends JPanel {
                 info.append(v.motor.emergencia().fuga.reparada() ? " · Fuente reparada" : " · Fuente activa")
                         .append(" · reparación ").append(v.motor.emergencia().fuga.progreso()).append("/2");
         }
-        for (Persona p : m.personas) if (!p.evacuada && p.f == f && p.c == c) {
+        for (Persona p : m.personas) if (!p.fuera() && p.f == f && p.c == c) {
             info.append(String.format("<br>%s · %s · estrés %.1f/%.0f ",
                     p.etiqueta(), p.tickMuerte >= 0 ? "Fallecida" : p.alertada ? "Alertada" : "Sin aviso",
                     p.estres, p.limiteEstres()));
@@ -287,7 +287,7 @@ public class PanelEdificio extends JPanel {
         double[][] off = {{0.3, 0.3}, {0.7, 0.3}, {0.3, 0.7}, {0.7, 0.7}};
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
         for (Persona p : m.personas) {
-            if (p.evacuada || m.piso(p.f) != piso) continue;
+            if (p.fuera() || m.piso(p.f) != piso) continue;
             int key = p.f * m.cols + p.c;
             int k = contador.merge(key, 1, Integer::sum) - 1;
             double[] o = off[Math.min(k, 3)];

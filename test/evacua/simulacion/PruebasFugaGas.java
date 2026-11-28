@@ -208,7 +208,7 @@ public class PruebasFugaGas {
         MotorSimulacion m=iniciar("H.S",TipoGas.MONOXIDO_CARBONO,Intensidad.BAJA);
         m.emergencia().solicitarRefuerzos(m);m.tick=10;m.emergencia().despachar(m);
         Hazmat a=(Hazmat)m.mapa.personas.get(0);
-        a.aumentarEstres(400); m.paso(); exigir(a.evacuada && a.retirado,"retiro por estrés");
+        a.aumentarEstres(400); m.paso(); exigir(a.fuera() && a.retirado,"retiro por estrés");
         int salida=m.tick;
         while(m.tick<salida+3) m.paso();
         igual(m.mapa.personas.size(),2);
@@ -265,7 +265,7 @@ public class PruebasFugaGas {
             PersonalRescate r=especialista?new Hazmat(80,0,4,100):new PersonalRescate(80,EstadoSalud.SANO,0,4);
             m.mapa.personas.add(r);r.alertada=true;
             while(m.tick<100 && m.paso()) {}
-            exigir(m.terminado && dos.alertada && dos.evacuada && r.evacuada,"visita a departamento pendiente tras el cierre: "+m.tick+" "+m.resultadoEscenario()+" "+dos.hist+" "+r.hist);
+            exigir(m.terminado && dos.alertada && dos.evacuada && r.fuera(),"visita a departamento pendiente tras el cierre: "+m.tick+" "+m.resultadoEscenario()+" "+dos.hist+" "+r.hist);
         }
     }
 
