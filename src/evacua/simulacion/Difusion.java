@@ -9,6 +9,10 @@ final class Difusion {
         aplicar(grafo, concentracion, permeable, (desde, hacia) -> true);
     }
 
+    static boolean permiteEntrada(evacua.edificio.Nodo destino, double concentracionEmisora) {
+        return destino.tipo != evacua.edificio.TipoNodo.PUERTA || destino.danado || concentracionEmisora >= 60;
+    }
+
     interface Paso { boolean permite(int desde, int hacia); }
 
     static double ventilar(evacua.edificio.Nodo n, double cantidad) {

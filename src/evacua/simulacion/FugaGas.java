@@ -41,7 +41,7 @@ public final class FugaGas {
 
     private boolean abierto(int i) { return nodos[i].tipo != TipoNodo.VACIO && !nodos[i].bloqueado; }
     private boolean permite(int desde, int hacia) {
-        return nodos[hacia].tipo != TipoNodo.PUERTA || nodos[hacia].danado || gas[desde] >= 100;
+        return Difusion.permiteEntrada(nodos[hacia], gas[desde]);
     }
 
     void ambiente() {

@@ -177,7 +177,6 @@ public class PruebasEmergencia {
         for (boolean astar : new boolean[]{false, true}) {
             MotorSimulacion m = iniciar("HPPS\n#PERSONAS\n0 0 ADULTO SANO", TipoDesastre.TERREMOTO);
             m.params.astar = astar;
-            m.params.umbral = 100;
             Persona p = m.mapa.personas.get(0);
             m.mapa.bloquear(0, 3, true);
             m.mapa.n[0][0].danado = m.mapa.n[0][1].danado = true;

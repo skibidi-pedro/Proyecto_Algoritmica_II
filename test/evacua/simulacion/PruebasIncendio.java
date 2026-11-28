@@ -186,7 +186,6 @@ public class PruebasIncendio {
                 igual(m.evaluarRuta(b,m.mapa.salidas(),astar).costo,2);
             }
         }
-        m.params.umbral = 100;
         m.paso(); m.paso();
         verificar(a.activa() && a.pasos > 0 && a.salud == EstadoSalud.HERIDO, "sale del foco con velocidad fraccionaria");
     }
@@ -328,6 +327,18 @@ public class PruebasIncendio {
         }
     }
 
+    static void humoEnPuerta() {
+        MotorSimulacion m = motor("HDP.S", Intensidad.BAJA, 0);
+        Incendio incendio = m.emergencia().incendio;
+        incendio.apagar(0, true);
+        incendio.nodos[0].humo = 59.99;
+        incendio.ambiente();
+        igual(incendio.nodos[1].humo, 0);
+        incendio.nodos[0].humo = 60;
+        incendio.ambiente();
+        igual(incendio.nodos[1].humo, 15);
+    }
+
     static void finalizacion() {
         MotorSimulacion m = motor("H.S\n#PERSONAS\n0 2 ADULTO SANO", Intensidad.BAJA,0);
         m.mapa.n[0][0].humo = 99.5;
@@ -352,7 +363,7 @@ public class PruebasIncendio {
     }
 
     public static void main(String[] args) {
-        propagacion(); puertasYExtincion(); humo(); personasYAlerta(); rutas(); brigada(); refuerzos(); prioridadesYReservas(); puertaInterrumpidaYSaturacion(); cancelacionYAtasco(); alarmaGeneral(); finalizacion();
+        propagacion(); puertasYExtincion(); humo(); personasYAlerta(); rutas(); brigada(); refuerzos(); prioridadesYReservas(); puertaInterrumpidaYSaturacion(); cancelacionYAtasco(); alarmaGeneral(); humoEnPuerta(); finalizacion();
         System.out.println("Incendio: propagación, puertas, humo, personas, alarma, rutas, brigada, extinción, refuerzos y finalización OK");
     }
 }

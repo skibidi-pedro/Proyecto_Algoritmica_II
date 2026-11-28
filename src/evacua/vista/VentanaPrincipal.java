@@ -503,7 +503,6 @@ public class VentanaPrincipal extends JFrame {
 
     void configurar() {
         JTextField sem = new JTextField(String.valueOf(params.semilla));
-        JTextField umb = new JTextField(String.valueOf(params.umbral));
         JTextField cap = new JTextField(String.valueOf(params.capacidad));
         JComboBox<String> alg = new JComboBox<>(new String[]{"A*", "Dijkstra"});
         alg.setSelectedIndex(params.astar ? 0 : 1);
@@ -537,7 +536,7 @@ public class VentanaPrincipal extends JFrame {
         f.add(new JLabel("Tiempo limite (ticks)"));
         f.add(new JLabel(String.valueOf(params.limite)));
         f.add(new JLabel("Estrés para reducir la velocidad"));
-        f.add(umb);
+        f.add(new JLabel(String.valueOf(params.umbral)));
         f.add(new JLabel("Capacidad base de cada casilla"));
         f.add(cap);
         f.add(new JLabel("Algoritmo de ruta"));
@@ -546,9 +545,8 @@ public class VentanaPrincipal extends JFrame {
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
         try {
             long se = Long.parseLong(sem.getText().trim());
-            double um = Double.parseDouble(umb.getText().trim());
             int ca = Integer.parseInt(cap.getText().trim());
-            if (!Double.isFinite(um) || um <= 0 || ca < 1) throw new NumberFormatException();
+            if (ca < 1) throw new NumberFormatException();
             params.desastre = (evacua.simulacion.TipoDesastre) desastre.getSelectedItem();
             params.gas = (evacua.simulacion.TipoGas) gas.getSelectedItem();
             params.nivel = (evacua.simulacion.Intensidad) intensidad.getSelectedItem();
@@ -559,7 +557,6 @@ public class VentanaPrincipal extends JFrame {
                 log("Seleccione el piso y haga clic en la casilla de origen.");
             }
             params.semilla = se;
-            params.umbral = um;
             params.capacidad = ca;
             params.astar = alg.getSelectedIndex() == 0;
             log("Parametros actualizados.");

@@ -10,7 +10,7 @@ public class ParametrosSimulacion {
     public double prob = 0;
     public long semilla = 42;
     public int limite = 500;
-    public double umbral = 8;
+    public final double umbral = 70;
     public int capacidad = 2;
     public boolean astar = true;
 
@@ -27,7 +27,6 @@ public class ParametrosSimulacion {
         p.prob = prob;
         p.semilla = semilla;
         p.limite = limite;
-        p.umbral = umbral;
         p.capacidad = capacidad;
         p.astar = astar;
         return p;

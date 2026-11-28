@@ -59,7 +59,8 @@ final class Incendio {
             Nodo n = nodos[i];
             humo[i] = n.fuegoActivo ? Math.min(100, n.humo + 1 + m.rnd.nextInt(5)) : n.humo;
         }
-        Difusion.aplicar(m.grafo, humo, i -> nodos[i].permeable());
+        Difusion.aplicar(m.grafo, humo, i -> nodos[i].tipo != TipoNodo.VACIO && !nodos[i].bloqueado,
+                (desde, hacia) -> Difusion.permiteEntrada(nodos[hacia], humo[desde]));
         for (int i = 0; i < nodos.length; i++) {
             Nodo n = nodos[i];
             double nuevo = Difusion.ventilar(n, humo[i]);
