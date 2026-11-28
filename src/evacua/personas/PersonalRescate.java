@@ -8,7 +8,7 @@ public class PersonalRescate extends Persona {
     }
 
     private final int resistencia;
-    protected PersonalRescate(int id, EstadoSalud salud, int f, int c, int resistencia) {
+    public PersonalRescate(int id, EstadoSalud salud, int f, int c, int resistencia) {
         super(id, TipoPersona.RESCATE, salud, f, c);
         this.resistencia = Math.max(100, Math.min(500, resistencia));
     }

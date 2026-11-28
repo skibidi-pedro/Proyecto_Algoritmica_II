@@ -103,6 +103,10 @@ public class Desastre {
         } else if (llegada >= 0 && m.tick >= llegada && haySolicitudes()) ingresarRefuerzos(m);
     }
 
+    boolean ingresoDisponible(int tick) {
+        return (pendientes > 0 && tick >= llegada) || (!reemplazos.isEmpty() && reemplazos.peek()[0] <= tick);
+    }
+
     public int origen() { return origen; }
     public int tickLlegada() { return llegada; }
     public int restantes(int tick) { return llegada < 0 ? -1 : Math.max(0, llegada - tick); }
@@ -140,14 +144,14 @@ public class Desastre {
     }
 
     void despacharTerremoto(MotorSimulacion m) {
-        if (m.tick >= llegada && pendientes > 0) ingresarRefuerzos(m);
+        if (ingresoDisponible(m.tick)) ingresarRefuerzos(m);
     }
 
     public int ticksTemblorRestantes(int tick) {
         return tipo == TipoDesastre.TERREMOTO ? Math.max(0, intensidad.duracion - tick) : 0;
     }
 
-    public int refuerzosPendientes() { return pendientes; }
+    public int refuerzosPendientes() { return pendientes + (tipo == TipoDesastre.TERREMOTO ? reemplazos.size() : 0); }
 
     private void sacudir(MotorSimulacion m) {
         boolean huboDerrumbe = false;
@@ -175,23 +179,25 @@ public class Desastre {
     private void ingresarRefuerzos(MotorSimulacion m) {
         List<int[]> accesos = m.mapa.salidas(true);
         int sinPlaza = 0;
-        while ((pendientes > 0 || !reemplazos.isEmpty() && reemplazos.peek()[0] <= m.tick) && sinPlaza < accesos.size()) {
+        while (ingresoDisponible(m.tick) && sinPlaza < accesos.size()) {
             int[] q = accesos.get(siguienteAcceso % accesos.size());
             siguienteAcceso = (siguienteAcceso + 1) % accesos.size();
             if (!m.admiteRefuerzo(q[0], q[1])) {
                 sinPlaza++;
                 continue;
             }
-            int limite = pendientes > 0 ? 100 : reemplazos.remove()[1];
+            boolean inicial = pendientes > 0 && m.tick >= llegada;
+            int limite = inicial ? 100 : reemplazos.peek()[1];
             boolean hazmat = fuga != null && (hazmatPendientes > 0 || pendientes == 0);
             PersonalRescate r = m.incorporarRefuerzo(q[0], q[1], id -> {
                 if (hazmat) return new Hazmat(id, q[0], q[1], limite);
                 if (incendio != null) return new Bombero(id, q[0], q[1], limite);
-                return new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1]);
+                return new PersonalRescate(id, EstadoSalud.SANO, q[0], q[1], limite);
             });
             if (hazmatPendientes > 0) hazmatPendientes--;
             m.log.accept("t=" + m.tick + " llega refuerzo P" + r.id + " por " + m.mapa.idDe(q[0], q[1]));
-            if (pendientes > 0) pendientes--;
+            if (inicial) pendientes--;
+            else reemplazos.remove();
             sinPlaza = 0;
         }
     }

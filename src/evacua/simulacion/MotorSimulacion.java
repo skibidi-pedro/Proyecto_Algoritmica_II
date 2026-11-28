@@ -588,7 +588,7 @@ public class MotorSimulacion {
         // Respeta el límite, dando turno de ingreso a los refuerzos que un civil aún espera.
         boolean esperarIngreso = false;
         if ((todas || tick >= params.limite) && desastre.refuerzosPendientes() > 0) {
-            if (tick < desastre.tickLlegada()) esperarIngreso = true;
+            if (tick < desastre.tickLlegada() || desastre.reemplazoEnCamino(tick)) esperarIngreso = true;
             else esperarIngreso = desastre.refuerzosPendientes() < pendientesAntes
                     || mapa.salidas(true).stream().anyMatch(q -> admiteRefuerzo(q[0], q[1]));
         }
@@ -651,7 +651,8 @@ public class MotorSimulacion {
     private void registrarSalida(Persona p) {
         if (p instanceof Adulto && p.objetivo != null) p.objetivo.ayudaFamiliar = false;
         p.objetivo = null;
-        if (incendio() && p instanceof Bombero || fuga() && p instanceof Hazmat) desastre.reemplazar((PersonalRescate)p, tick);
+        if (params.desastre == TipoDesastre.TERREMOTO && p instanceof PersonalRescate
+                || incendio() && p instanceof Bombero || fuga() && p instanceof Hazmat) desastre.reemplazar((PersonalRescate)p, tick);
         p.evacuada = !(p instanceof PersonalRescate);
         p.tEvac = tick;
         p.hist.add("t=" + tick + (p.evacuada ? " EVACUADA" : " FIN DE SERVICIO"));
@@ -700,7 +701,7 @@ public class MotorSimulacion {
     boolean admiteRefuerzo(int f, int c) {
         if (!mapa.dentro(f, c)) return false;
         Nodo n = mapa.n[f][c];
-        return !terminado && desastre.restantes(tick) == 0 && n.tipo == TipoNodo.SALIDA
+        return !terminado && (desastre.restantes(tick) == 0 || desastre.ingresoDisponible(tick)) && n.tipo == TipoNodo.SALIDA
                 && n.ocupacion + TipoPersona.RESCATE.ocupacion()
                         <= n.capacidadEfectiva(params.capacidad, params.desastre == TipoDesastre.TERREMOTO || alertaIndividual());
     }

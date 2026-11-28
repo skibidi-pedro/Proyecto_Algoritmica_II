@@ -204,6 +204,19 @@ public class PruebasEmergencia {
         }
     }
 
+    static void relevoTerremoto() {
+        MotorSimulacion m = iniciar("SH.H\n#PERSONAS\n0 0 RESCATE SANO\n0 3 ADULTO INCAPACITADO", TipoDesastre.TERREMOTO);
+        Persona inicial = m.mapa.personas.get(0);
+        inicial.aumentarEstres(400);
+        pasoTranquilo(m);
+        exigir(inicial.fuera() && !inicial.evacuada, "Retiro del rescatista por estrés");
+        for (int i = 0; i < 3; i++) pasoTranquilo(m);
+        exigir(m.mapa.personas.size() == 2, "Espera cuatro ticks desde el retiro");
+        pasoTranquilo(m);
+        exigir(m.mapa.personas.size() == 3 && m.mapa.personas.get(2).limiteEstres() == 150,
+                "Relevo antes del contingente inicial con mayor resistencia");
+    }
+
     static void refuerzos() {
         for (Intensidad nivel : Intensidad.values()) {
             int i = nivel.ordinal(), llegada = new int[]{12,14,15}[i], cantidad = new int[]{2,4,7}[i];
@@ -232,6 +245,7 @@ public class PruebasEmergencia {
         confusionYDerrumbe();
         refugiosYRescate();
         refuerzos();
+        relevoTerremoto();
         configuracion();
         mortalidad();
         compatibilidad();
