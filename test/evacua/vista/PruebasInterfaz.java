@@ -42,6 +42,37 @@ public class PruebasInterfaz {
         }
     }
 
+    private static void iniciarIncendio(VentanaPrincipal v, AbstractButton iniciar) {
+        v.mapa = v.crearEdificioInicial();
+        v.params.desastre = evacua.simulacion.TipoDesastre.INCENDIO;
+        v.params.origenManual = true;
+        v.params.pisoOrigen = 1;
+        v.params.filaOrigen = 1;
+        v.params.colOrigen = 1;
+        iniciar.doClick();
+        try {
+            if (!v.timer.isRunning() || v.pisoActual != 1 || v.motor.tick != 0)
+                throw new AssertionError("Inicio del incendio en el piso del foco");
+            int lado = PanelEdificio.CELL;
+            v.grid.setSize(v.grid.getPreferredSize());
+            BufferedImage imagen = new BufferedImage(v.grid.getWidth(), v.grid.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = imagen.createGraphics();
+            try {
+                v.grid.paint(g);
+                if (imagen.getRGB(lado + 6, lado + 22) != PanelEdificio.FUEGO.getRGB())
+                    throw new AssertionError("Casilla del foco visible en rojo desde el inicio");
+            } finally {
+                g.dispose();
+            }
+            v.avanzar();
+            Nodo foco = v.motor.mapa.n[v.mapa.filasPorPiso + 1][1];
+            if (v.motor.tick != 1 || !foco.fuegoActivo || foco.humo <= 0)
+                throw new AssertionError("El incendio debe avanzar y producir humo");
+        } finally {
+            v.timer.stop();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         indicadoresGas();
         Nodo n = new Nodo();
@@ -80,6 +111,7 @@ public class PruebasInterfaz {
                 }
                 botones.get("Ver mapa de calor").doClick();
                 if (!v.verCalor) throw new AssertionError("Activación del mapa de calor");
+                iniciarIncendio(v, botones.get("Iniciar emergencia y simular evacuacion"));
             } finally {
                 v.dispose();
             }

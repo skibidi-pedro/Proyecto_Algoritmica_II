@@ -17,6 +17,7 @@ import java.util.Map;
 
 public class PanelEdificio extends JPanel {
     static final int CELL = 38;
+    static final Color FUEGO = new Color(0xc62828);
 
     static float intensidadCalor(Nodo n, boolean enVivo, int capacidad, int maxVisitas) {
         if (!enVivo) return n.visitas > 0 ? 0.12f + 0.73f * n.visitas / maxVisitas : 0;
@@ -218,9 +219,13 @@ public class PanelEdificio extends JPanel {
                     g.setColor(new Color(55, 60, 67, (int)(1.5 * nd.humo)));
                     g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
                 }
+                if (nd.fuegoActivo) {
+                    g.setColor(FUEGO);
+                    g.fillRect(x + 2, y + 2, CELL - 3, CELL - 3);
+                }
                 g.setColor(new Color(90, 90, 90));
                 g.drawRect(x + 2, y + 2, CELL - 3, CELL - 3);
-                g.setColor(new Color(60, 60, 60, 160));
+                g.setColor(nd.fuegoActivo ? Color.WHITE : new Color(60, 60, 60, 160));
                 g.drawString(String.valueOf(nd.tipo.letra), x + CELL / 2 - 5, y + CELL / 2 + 5);
                 if (nd.danado || nd.peligroso) {
                     g.setColor(Color.BLACK);
@@ -239,7 +244,7 @@ public class PanelEdificio extends JPanel {
                     dibujarFuente(g, x, y, v.motor.emergencia().fuga.reparada());
                 }
                 if (nd.fuegoActivo) {
-                    g.setColor(new Color(190, 45, 0));
+                    g.setColor(Color.YELLOW);
                     g.fillPolygon(new int[]{x + CELL - 13, x + CELL - 7, x + CELL - 3},
                             new int[]{y + 15, y + 3, y + 15}, 3);
                 }

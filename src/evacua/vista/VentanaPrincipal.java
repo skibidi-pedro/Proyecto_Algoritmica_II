@@ -15,6 +15,7 @@ import evacua.reportes.ReporteSimulacion;
 import evacua.rutas.BuscadorRutas;
 import evacua.rutas.ResultadoRuta;
 import evacua.simulacion.MotorSimulacion;
+import evacua.simulacion.TipoDesastre;
 import evacua.simulacion.RegistroSalida;
 import evacua.simulacion.ParametrosSimulacion;
 
@@ -397,6 +398,17 @@ public class VentanaPrincipal extends JFrame {
         }
         timer.stop();
         motor = siguiente;
+        if (motor.params.desastre == TipoDesastre.INCENDIO) {
+            int origen = motor.emergencia().origen();
+            int fila = origen / motor.mapa.cols;
+            int columna = origen % motor.mapa.cols;
+            pisoActual = motor.mapa.piso(fila);
+            int filaEnPiso = fila % motor.mapa.filasPorPiso;
+            reconstruirSelector();
+            int lado = PanelEdificio.CELL;
+            grid.scrollRectToVisible(new Rectangle(columna * lado, filaEnPiso * lado, lado, lado));
+            log("Foco de incendio en piso " + (pisoActual + 1) + ", fila " + filaEnPiso + ", columna " + columna + ".");
+        }
         motor.alTerminar = () -> {
             guardarSalidasCsv();
             try {
